@@ -52,27 +52,14 @@ export default function Home() {
       .update({ unidades_restantes: novasUnidades })
       .eq('id', roloObj.id);
 
-    // 2. Registar histórico no Supabase (se a tabela historico existir)
-    await supabase
-      .from('historico')
-      .insert([
-        {
-          rolo_id: roloObj.id,
-          raqueta_id: selectedRaqueta,
-          tipo: tipoStringing,
-          unidades_consumidas: consumo,
-          data: new Date().toISOString()
-        }
-      ])
-      .catch(() => {}); // Ignora se a tabela de histórico ainda não foi criada
-
     if (errorRolo) {
       alert('Erro ao atualizar rolo: ' + errorRolo.message);
-    } else {
-      alert(`Encordoamento registado com sucesso! Consumo: ${consumo} un. Restam: ${novasUnidades} un.`);
-      setShowModal(false);
-      carregarDados();
+      return;
     }
+
+    alert(`Encordoamento registado com sucesso! Consumo: ${consumo} un. Restam: ${novasUnidades} un.`);
+    setShowModal(false);
+    carregarDados();
   }
 
   if (loading) {
