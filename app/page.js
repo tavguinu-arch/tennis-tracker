@@ -10,7 +10,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
 
-  // Campos do formulário de registo de encordoamento
+  // Campos do formulário
   const [selectedRacket, setSelectedRacket] = useState('');
   const [selectedReel, setSelectedReel] = useState('');
   const [selectedStringer, setSelectedStringer] = useState('');
@@ -57,11 +57,10 @@ export default function Home() {
     const reelObj = reels.find(r => r.id === parseInt(selectedReel));
     if (!reelObj) return;
 
-    // Cálculo do consumo: Full bed = 1 unidade gasta no rolo
-    const consumo = 1; 
+    const consumo = 1; // Full bed = 1 unidade
     const novasUnidades = Math.max(0, Number(reelObj.total_stringings) - consumo);
 
-    // 1. Atualizar o stock restante/total no rolo
+    // 1. Atualizar rolo no Supabase
     const { error: errorReel } = await supabase
       .from('string_reels')
       .update({ total_stringings: novasUnidades })
@@ -72,7 +71,7 @@ export default function Home() {
       return;
     }
 
-    // 2. Inserir o registo na tabela oficial de histórico (stringings)
+    // 2. Registar histórico na tabela stringings
     const { error: errorStringing } = await supabase
       .from('stringings')
       .insert([
@@ -115,11 +114,11 @@ export default function Home() {
           <p className="text-xs text-gray-400">Gestão Profissional de Encordoamentos</p>
         </div>
         <span className="text-xs font-semibold bg-gray-900 border border-gray-800 px-3 py-1 rounded-full text-emerald-400">
-          Admin
+          Pro
         </span>
       </header>
 
-      {/* Botão de Ação */}
+      {/* Botão Principal */}
       <button 
         onClick={() => setShowModal(true)}
         className="w-full bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-bold py-3.5 px-4 rounded-xl shadow-lg transition duration-200 flex items-center justify-center gap-2 text-sm mb-6 active:scale-98 cursor-pointer"
