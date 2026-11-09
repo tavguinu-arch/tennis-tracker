@@ -68,7 +68,7 @@ function Overview({ data, currencyCode, onViewAll }: { data: DashboardSnapshot; 
     <div className="stat-grid">
       <article className="stat-card"><div className="stat-heading"><span>Active rackets</span><span className="stat-icon">⌁</span></div><strong>{data.activeRackets}</strong></article>
       <article className="stat-card"><div className="stat-heading"><span>Stringings</span><span className="stat-icon">⚒</span></div><strong>{data.stringingsCount}</strong></article>
-      <article className="stat-card spend-card"><div className="stat-heading"><span>Total spent</span><span className="stat-icon">▣</span></div><strong>{formatCurrency(totalSpent, currencyCode)}</strong><p>Rackets {formatCurrency(data.racketSpend, currencyCode)} <i>·</i> Strings {formatCurrency(data.stringSpend, currencyCode)} <i>·</i> Service {formatCurrency(data.serviceSpend, currencyCode)}</p></article>
+      <article className="stat-card spend-card"><div className="stat-heading"><span>Total spent</span><span className="stat-icon">▣</span></div><strong>{formatCurrency(totalSpent, currencyCode)}</strong><p>Rackets {formatCurrency(data.racketSpend, currencyCode)} <i>·</i> String reels {formatCurrency(data.stringSpend, currencyCode)} <i>·</i> Stringing service {formatCurrency(data.serviceSpend, currencyCode)}</p></article>
     </div>
     <section className="data-section overview-latest">
       <div className="section-heading"><div><h2>Latest stringings</h2><p>Your most recent restringing sessions.</p></div><button className="text-link" type="button" onClick={onViewAll}>View all <span>→</span></button></div>
@@ -102,8 +102,8 @@ function StringsView({ data, onAction, onEdit }: { data: DashboardSnapshot; onAc
   return <>
     <PageTitle title="Strings" actions={<><ActionButton secondary onClick={() => onAction("New string")}>New string</ActionButton><ActionButton onClick={() => onAction("New reel")}>＋ New reel</ActionButton></>} />
     <section className="strings-section">
-      <div className="section-heading"><div><h2>Reels</h2><p>A reel holds about 17 stringings (16 to 18). Each stringing uses 0.5 of the reel for mains and 0.5 for crosses, so a full bed from one reel uses 1. Select a row to edit it.</p></div></div>
-      <div className="data-section"><DataTable headers={["Reel", "Bought", "Price", "Used for mains"]} rows={data.reels.map((reel) => [reel.name, reel.bought, reel.price, reel.usedForMains])} onEdit={(i) => { const r = data.reels[i]; onEdit({ kind: "reel", id: r.id, values: { string_id: r.stringId, purchase_date: r.purchaseDate, price: r.priceValue, total_stringings: r.totalStringingsValue, notes: r.notes } }); }} /></div>
+      <div className="section-heading"><div><h2>Reels</h2><p>Stock is estimated in full-bed equivalents: each mains or crosses use counts as half. If both use the same reel, that stringing counts as one. Edit a reel to update its expected capacity.</p></div></div>
+      <div className="data-section"><DataTable headers={["Reel", "Bought", "Price", "Used / capacity", "Remaining"]} rows={data.reels.map((reel) => [reel.name, reel.bought, reel.price, `${reel.usedCapacity.toLocaleString("en-GB", { maximumFractionDigits: 1 })} / ${reel.totalStringingsValue ?? "—"}`, reel.remainingCapacity === null ? "—" : `${reel.remainingCapacity.toLocaleString("en-GB", { maximumFractionDigits: 1 })} beds`])} onEdit={(i) => { const r = data.reels[i]; onEdit({ kind: "reel", id: r.id, values: { string_id: r.stringId, purchase_date: r.purchaseDate, price: r.priceValue, total_stringings: r.totalStringingsValue, notes: r.notes } }); }} /></div>
     </section>
     <section className="strings-section type-section">
       <div className="section-heading"><div><h2>String types</h2></div></div>
@@ -243,7 +243,7 @@ export default function DashboardClient({ data, profileName, email = "", prefere
     serviceSpend: 75,
     rackets: previewRackets,
     stringings: previewStringings,
-    reels: [{ id: 1, stringId: 1, purchaseDate: "2026-09-21", priceValue: 95, totalStringingsValue: 17, notes: null, name: "Solinco Hyper-G Soft 1.20", bought: "21 Sep 2026", price: "€95.00", usedForMains: "15" }],
+    reels: [{ id: 1, stringId: 1, purchaseDate: "2026-09-21", priceValue: 95, totalStringingsValue: 17, notes: null, name: "Solinco Hyper-G Soft 1.20", bought: "21 Sep 2026", price: "€95.00", usedCapacity: 15, remainingCapacity: 2 }],
     strings: [{ id: 1, brand: "Solinco", name: "Hyper-G Soft", type: "Polyester", gauge: "1.20" }],
     racketModels: [{ id: 1, brand: "Tecnifibre", name: "TFight 300", headSize: 100, weightGrams: 300, stringPattern: "16x19", notes: null }],
     stringers: [],

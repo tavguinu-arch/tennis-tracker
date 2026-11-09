@@ -46,7 +46,8 @@ export type ReelSummary = {
   name: string;
   bought: string;
   price: string;
-  usedForMains: string;
+  usedCapacity: number;
+  remainingCapacity: number | null;
 };
 
 export type StringSummary = {
@@ -167,7 +168,10 @@ export async function getDashboardSnapshot(
 
   const reels = reelsResult.data.map((reel) => {
     const string = reel.string_id === null ? undefined : stringsById.get(reel.string_id);
-    const usedMains = stringingsResult.data.filter((session) => session.main_reel_id === reel.id).length;
+    // Each stringing consumes half a full-bed equivalent from each reel used.
+    // Using the same reel for mains and crosses therefore consumes one whole equivalent.
+    const usedCapacity = stringingsResult.data.reduce((total, session) =>
+      total + (session.main_reel_id === reel.id ? 0.5 : 0) + (session.cross_reel_id === reel.id ? 0.5 : 0), 0);
     return {
       id: reel.id,
       stringId: reel.string_id,
@@ -178,7 +182,8 @@ export async function getDashboardSnapshot(
       name: formatString(string?.brand ?? null, string?.name ?? null, string?.gauge ?? null),
       bought: formatDate(reel.purchase_date),
       price: reel.price === null ? "—" : currency.format(reel.price),
-      usedForMains: String(usedMains),
+      usedCapacity,
+      remainingCapacity: reel.total_stringings === null ? null : reel.total_stringings - usedCapacity,
     };
   });
 
