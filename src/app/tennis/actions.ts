@@ -56,6 +56,8 @@ export async function createTennisRecord(
   if (!user) return { error: "Your session expired. Sign in again before saving." };
 
   const kind = text(formData, "kind", 30);
+  const recordId = optionalId(formData, "record_id");
+  if (!recordId.valid) return { error: "This record could not be identified. Refresh the page and try again." };
   const notes = text(formData, "notes", 1000) || null;
   let error: { message: string } | null = null;
 
@@ -145,7 +147,7 @@ export async function createTennisRecord(
       const mainUnit = text(formData, "main_tension_unit", 4);
       const crossUnit = text(formData, "cross_tension_unit", 4);
       if (!["kg", "lb"].includes(mainUnit) || !["kg", "lb"].includes(crossUnit)) return { error: "Choose kg or lb for both tensions." };
-      ({ error } = await supabase.from("stringings").insert({
+      const values = {
         user_id: user.id,
         racket_id: racketId.value,
         main_reel_id: mainReelId.value,
@@ -160,7 +162,12 @@ export async function createTennisRecord(
         stringing_date: stringingDate.value,
         replacement_reason: text(formData, "replacement_reason", 120) || null,
         notes,
-      }));
+      };
+      const result = recordId.value
+        ? await supabase.from("stringings").update(values).eq("id", recordId.value).eq("user_id", user.id).select("id")
+        : await supabase.from("stringings").insert(values);
+      error = result.error;
+      if (!error && recordId.value && result.data?.length === 0) return { error: "This stringing was not found in your account." };
       break;
     }
     default:

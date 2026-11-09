@@ -4,6 +4,10 @@ import type { Database } from "@/types/database";
 export type RacketSummary = {
   id: number;
   modelId: number | null;
+  purchaseDate: string | null;
+  priceValue: number | null;
+  isActive: boolean | null;
+  notes: string | null;
   name: string;
   model: string;
   bought: string;
@@ -16,6 +20,15 @@ export type StringingSummary = {
   mainReelId: number | null;
   crossReelId: number | null;
   stringerId: number | null;
+  stringingDate: string | null;
+  mainTension: number;
+  crossTension: number;
+  mainUnit: string | null;
+  crossUnit: string | null;
+  serviceCost: number | null;
+  hoursPlayed: number | null;
+  replacementReason: string | null;
+  notes: string | null;
   date: string;
   racket: string;
   string: string;
@@ -26,6 +39,10 @@ export type StringingSummary = {
 export type ReelSummary = {
   id: number;
   stringId: number | null;
+  purchaseDate: string | null;
+  priceValue: number | null;
+  totalStringingsValue: number | null;
+  notes: string | null;
   name: string;
   bought: string;
   price: string;
@@ -36,8 +53,8 @@ export type StringSummary = {
   id: number;
   brand: string;
   name: string;
-  type: string;
-  gauge: string;
+  type: string | null;
+  gauge: string | null;
 };
 
 export type DashboardSnapshot = {
@@ -50,8 +67,8 @@ export type DashboardSnapshot = {
   stringings: StringingSummary[];
   reels: ReelSummary[];
   strings: StringSummary[];
-  racketModels: { id: number; brand: string; name: string }[];
-  stringers: { id: number; name: string }[];
+  racketModels: { id: number; brand: string; name: string; headSize: number | null; weightGrams: number | null; stringPattern: string | null; notes: string | null }[];
+  stringers: { id: number; name: string; notes: string | null }[];
 };
 
 const dateFormatter = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric" });
@@ -76,12 +93,12 @@ export async function getDashboardSnapshot(
   const currency = currencyFormatter(currencyCode);
   const [modelsResult, racketsResult, stringsResult, reelsResult, stringingsResult, stringersResult] =
     await Promise.all([
-      supabase.from("racket_models").select("id, brand, model_name").order("brand"),
-      supabase.from("rackets").select("id, identifier, model_id, purchase_date, price, is_active").order("id"),
+      supabase.from("racket_models").select("id, brand, model_name, head_size, weight_grams, string_pattern, notes").order("brand"),
+      supabase.from("rackets").select("id, identifier, model_id, purchase_date, price, is_active, notes").order("id"),
       supabase.from("strings").select("id, brand, name, type, gauge").order("brand"),
-      supabase.from("string_reels").select("id, string_id, purchase_date, price, total_stringings").order("purchase_date", { ascending: false }),
-      supabase.from("stringings").select("id, racket_id, main_reel_id, cross_reel_id, stringer_id, stringing_date, main_tension_kg, cross_tension_kg, main_tension_unit, cross_tension_unit, service_cost").order("stringing_date", { ascending: false }),
-      supabase.from("stringers").select("id, name"),
+      supabase.from("string_reels").select("id, string_id, purchase_date, price, total_stringings, notes").order("purchase_date", { ascending: false }),
+      supabase.from("stringings").select("id, racket_id, main_reel_id, cross_reel_id, stringer_id, stringing_date, main_tension_kg, cross_tension_kg, main_tension_unit, cross_tension_unit, service_cost, hours_played, replacement_reason, notes").order("stringing_date", { ascending: false }),
+      supabase.from("stringers").select("id, name, notes"),
     ]);
 
   if (
@@ -102,6 +119,10 @@ export async function getDashboardSnapshot(
     return {
       id: racket.id,
       modelId: racket.model_id,
+      purchaseDate: racket.purchase_date,
+      priceValue: racket.price,
+      isActive: racket.is_active,
+      notes: racket.notes,
       name: racket.identifier,
       model: [model?.brand, model?.model_name].filter(Boolean).join(" ") || "Model not set",
       bought: formatDate(racket.purchase_date),
@@ -127,6 +148,15 @@ export async function getDashboardSnapshot(
       mainReelId: session.main_reel_id,
       crossReelId: session.cross_reel_id,
       stringerId: session.stringer_id,
+      stringingDate: session.stringing_date,
+      mainTension: session.main_tension_kg,
+      crossTension: session.cross_tension_kg,
+      mainUnit: session.main_tension_unit,
+      crossUnit: session.cross_tension_unit,
+      serviceCost: session.service_cost,
+      hoursPlayed: session.hours_played,
+      replacementReason: session.replacement_reason,
+      notes: session.notes,
       date: formatDate(session.stringing_date),
       racket: racket?.identifier ?? "—",
       string: mainLabel === crossLabel ? mainLabel : `${mainLabel} / ${crossLabel}`,
@@ -141,6 +171,10 @@ export async function getDashboardSnapshot(
     return {
       id: reel.id,
       stringId: reel.string_id,
+      purchaseDate: reel.purchase_date,
+      priceValue: reel.price,
+      totalStringingsValue: reel.total_stringings,
+      notes: reel.notes,
       name: formatString(string?.brand ?? null, string?.name ?? null, string?.gauge ?? null),
       bought: formatDate(reel.purchase_date),
       price: reel.price === null ? "—" : currency.format(reel.price),
@@ -152,8 +186,8 @@ export async function getDashboardSnapshot(
     id: item.id,
     brand: item.brand,
     name: item.name,
-    type: item.type ?? "—",
-    gauge: item.gauge ?? "—",
+    type: item.type,
+    gauge: item.gauge,
   }));
 
   return {
@@ -170,8 +204,12 @@ export async function getDashboardSnapshot(
       id: model.id,
       brand: model.brand ?? "Unknown brand",
       name: model.model_name ?? "Unnamed model",
+      headSize: model.head_size,
+      weightGrams: model.weight_grams,
+      stringPattern: model.string_pattern,
+      notes: model.notes,
     })),
-    stringers: stringersResult.data.map((stringer) => ({ id: stringer.id, name: stringer.name })),
+    stringers: stringersResult.data.map((stringer) => ({ id: stringer.id, name: stringer.name, notes: stringer.notes })),
   };
 }
 
