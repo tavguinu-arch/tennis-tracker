@@ -7,13 +7,15 @@ import { formatCurrency } from "@/lib/tennis/dashboard";
 import { changePassword, deleteAccount, saveProfileSettings, signOut } from "@/app/auth/actions";
 import { createTennisRecord, type RecordActionState } from "@/app/tennis/actions";
 
-type View = "Overview" | "Rackets" | "Stringings" | "Strings" | "Profile";
+type View = "Overview" | "Rackets" | "Stringings" | "Strings" | "Training" | "Tournaments" | "Profile";
 
 const views: { name: View; icon: string }[] = [
   { name: "Overview", icon: "▦" },
   { name: "Rackets", icon: "⌁" },
   { name: "Stringings", icon: "⚒" },
   { name: "Strings", icon: "♜" },
+  { name: "Training", icon: "◷" },
+  { name: "Tournaments", icon: "✦" },
 ];
 
 const previewRackets: RacketSummary[] = [
@@ -61,7 +63,7 @@ function PreviewNotice({ preview, loadError }: { preview: boolean; loadError: st
   return <div className={loadError ? "preview-notice error-notice" : "preview-notice"}><span className="notice-symbol">i</span><span>{message}</span></div>;
 }
 
-function Overview({ data, currencyCode, locale, onViewAll }: { data: DashboardSnapshot; currencyCode: string; locale: string; onViewAll: () => void }) {
+function Overview({ data, currencyCode, locale, onViewAll }: { data: DashboardSnapshot; currencyCode: string; locale: string; onViewAll: (view?: View) => void }) {
   const totalSpent = data.racketSpend + data.stringSpend + data.serviceSpend;
   return <>
     <PageTitle title="Overview" />
@@ -74,6 +76,33 @@ function Overview({ data, currencyCode, locale, onViewAll }: { data: DashboardSn
       <div className="section-heading"><div><h2>Latest stringings</h2><p>Your most recent restringing sessions.</p></div><button className="text-link" type="button" onClick={onViewAll}>View all <span>→</span></button></div>
       <StringingTable rows={data.stringings.slice(0, 3)} compact />
     </section>
+    <section className="future-preview-section">
+      <div className="section-heading"><div><h2>Your tennis season</h2><p>Training and competition, connected to your player profile.</p></div></div>
+      <div className="future-preview-grid">
+        <button className="future-preview-card training-preview" type="button" onClick={() => onViewAll("Training")}><span className="future-preview-icon">◷</span><span className="future-eyebrow">ON COURT</span><strong>Training log</strong><span className="future-copy">Sessions, duration, focus and intensity.</span><span className="future-arrow">Explore area →</span></button>
+        <button className="future-preview-card tournament-preview" type="button" onClick={() => onViewAll("Tournaments")}><span className="future-preview-icon">✦</span><span className="future-eyebrow">COMPETE</span><strong>Tournaments & results</strong><span className="future-copy">Events, opponents, rounds and match scores.</span><span className="future-arrow">Explore area →</span></button>
+      </div>
+    </section>
+  </>;
+}
+
+function TrainingView() {
+  return <>
+    <PageTitle title="Training" actions={<span className="design-status">DESIGN PREVIEW</span>} />
+    <div className="module-hero training-hero"><div><span className="future-eyebrow">YOUR WORK ON COURT</span><h2>Every session moves your game forward.</h2><p>A clear training journal for the sessions that shape your tennis.</p></div><div className="hero-tennis-mark">◷</div></div>
+    <div className="module-stats"><article><span>Sessions this month</span><strong>—</strong><small>Ready for your first entry</small></article><article><span>Time on court</span><strong>—</strong><small>Minutes add up over the season</small></article><article><span>Current focus</span><strong>—</strong><small>See where your work is going</small></article></div>
+    <section className="module-panel"><div className="section-heading"><div><h2>Training journal</h2><p>Each session can capture the date, duration, session type, focus, intensity and your own notes.</p></div><span className="coming-pill">COMING NEXT</span></div><div className="training-timeline"><div className="timeline-date"><strong>MON</strong><span>—</span></div><div className="timeline-line"><i /></div><div className="timeline-placeholder"><span className="placeholder-icon">◷</span><div><strong>Your sessions will appear here</strong><p>Technical work · Tactics · Match play · Serve</p></div></div></div></section>
+    <p className="module-privacy-note"><span>◉</span> Your training journal will be private to your player account.</p>
+  </>;
+}
+
+function TournamentsView() {
+  return <>
+    <PageTitle title="Tournaments & results" actions={<span className="design-status">DESIGN PREVIEW</span>} />
+    <div className="module-hero tournament-hero"><div><span className="future-eyebrow">MATCH DAY</span><h2>Keep every result in context.</h2><p>Track the event, the opponent and the story of each match.</p></div><div className="hero-tennis-mark">✦</div></div>
+    <div className="module-stats"><article><span>Tournaments</span><strong>—</strong><small>Your competition calendar</small></article><article><span>Matches played</span><strong>—</strong><small>Every result, in one place</small></article><article><span>Win rate</span><strong>—</strong><small>Built from recorded matches</small></article></div>
+    <section className="module-panel"><div className="section-heading"><div><h2>Competition calendar</h2><p>Organise tournaments first, then add each match with opponent, round, score and outcome.</p></div><span className="coming-pill">COMING NEXT</span></div><div className="tournament-empty"><div className="tournament-court"><span>LOVE</span><i /><i /><i /><i /><b /></div><div><strong>Your next tournament starts here</strong><p>Event dates · Surface · Location · Match results</p></div></div></section>
+    <p className="module-privacy-note"><span>◉</span> Tournament and match records will be private to your player account.</p>
   </>;
 }
 
@@ -272,10 +301,12 @@ export default function DashboardClient({ data, profileName, email = "", prefere
     <div className="main-content"><PreviewNotice preview={preview} loadError={loadError} />
       {!preview && !loadError && currentData.rackets.length === 0 && currentData.stringingsCount === 0 && <div className="empty-account-note">Your account is ready. No tennis records are assigned to it yet.</div>}
       {profileError && <div className="action-feedback" role="alert">{profileError === "invalid-settings" ? "One or more preferences are not valid." : "Your preferences could not be saved."}</div>}
-      {view === "Overview" && <Overview data={currentData} currencyCode={currentPreferences.currency_code} locale={currentPreferences.locale} onViewAll={() => setView("Stringings")} />}
+      {view === "Overview" && <Overview data={currentData} currencyCode={currentPreferences.currency_code} locale={currentPreferences.locale} onViewAll={(next = "Stringings") => setView(next)} />}
       {view === "Rackets" && <RacketsView data={currentData} onAction={handleAction} onEdit={(record) => { setEditingRecord(record); setRecordKind(record.kind); }} />}
       {view === "Stringings" && <StringingsView data={currentData} onAction={handleAction} onEdit={(row) => { setEditingRecord({ kind: "stringing", id: row.id, values: { racket_id: row.racketId, main_reel_id: row.mainReelId, cross_reel_id: row.crossReelId, stringer_id: row.stringerId, main_tension_kg: row.mainTension, cross_tension_kg: row.crossTension, main_tension_unit: row.mainUnit, cross_tension_unit: row.crossUnit, service_cost: row.serviceCost, hours_played: row.hoursPlayed, stringing_date: row.stringingDate, replacement_reason: row.replacementReason, notes: row.notes } }); setRecordKind("stringing"); }} onEditStringer={(record) => { setEditingRecord(record); setRecordKind(record.kind); }} />}
       {view === "Strings" && <StringsView data={currentData} onAction={handleAction} onEdit={(record) => { setEditingRecord(record); setRecordKind(record.kind); }} />}
+      {view === "Training" && <TrainingView />}
+      {view === "Tournaments" && <TournamentsView />}
       {view === "Profile" && <ProfileView profileName={profileName} email={email} preferences={currentPreferences} preview={preview} saved={saved} accountMessage={accountMessage} accountError={accountError} accountDeletionEnabled={accountDeletionEnabled} />}
       <footer className="app-footer">Tennis Tracker <span>·</span> Equipment, strings and restringing history</footer>
     </div>

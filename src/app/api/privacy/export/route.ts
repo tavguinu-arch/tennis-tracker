@@ -93,7 +93,15 @@ export async function GET() {
     supabase.from("stringers").select("*").order("id"),
     supabase.from("stringings").select("*").order("id"),
   ]);
-  const error = [profile, models, rackets, strings, reels, stringers, stringings].find((result) => result.error)?.error;
+  const [training, tournaments, matches] = await Promise.all([
+    supabase.from("tennis_training_sessions").select("*").order("id"),
+    supabase.from("tournaments").select("*").order("id"),
+    supabase.from("tournament_matches").select("*").order("id"),
+  ]);
+  // New module tables may not exist in deployments until their prepared SQL migration is applied.
+  const optional = (result: { error: { code?: string } | null }) => result.error?.code === "42P01" || result.error?.code === "PGRST205" ? null : result.error;
+  const error = [profile, models, rackets, strings, reels, stringers, stringings].find((result) => result.error)?.error
+    ?? optional(training) ?? optional(tournaments) ?? optional(matches);
   if (error) return NextResponse.json({ error: "We could not prepare the export. Please try again." }, { status: 500 });
 
   const files = [
@@ -104,6 +112,9 @@ export async function GET() {
     { name: "string_reels.csv", rows: reels.data ?? [], columns: ["id", "user_id", "created_at", "string_id", "purchase_date", "price", "total_stringings", "notes"] },
     { name: "stringers.csv", rows: stringers.data ?? [], columns: ["id", "user_id", "created_at", "name", "notes"] },
     { name: "stringings.csv", rows: stringings.data ?? [], columns: ["id", "user_id", "created_at", "racket_id", "main_reel_id", "main_tension_kg", "cross_reel_id", "cross_tension_kg", "stringing_date", "notes", "main_tension_unit", "cross_tension_unit", "service_cost", "stringer_id", "hours_played", "replacement_reason"] },
+    { name: "tennis_training_sessions.csv", rows: training.error ? [] : training.data ?? [], columns: ["id", "user_id", "training_date", "duration_minutes", "session_type", "focus", "intensity", "location", "notes", "created_at"] },
+    { name: "tournaments.csv", rows: tournaments.error ? [] : tournaments.data ?? [], columns: ["id", "user_id", "name", "start_date", "end_date", "location", "surface", "category", "notes", "created_at"] },
+    { name: "tournament_matches.csv", rows: matches.error ? [] : matches.data ?? [], columns: ["id", "user_id", "tournament_id", "match_date", "round", "opponent", "outcome", "score", "notes", "created_at"] },
   ].map(({ name, rows, columns }) => ({ name, content: csv(rows as CsvRecord[], columns) }));
 
   return new NextResponse(new Uint8Array(zip(files)), {

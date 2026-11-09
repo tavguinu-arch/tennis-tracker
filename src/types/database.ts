@@ -167,6 +167,37 @@ type StringingInsert = PlayerOwnedInsert & {
   replacement_reason?: string | null;
 };
 
+type TrainingSessionRow = PlayerOwned & {
+  id: Id; training_date: string; duration_minutes: number | null;
+  session_type: string; focus: string | null; intensity: number | null;
+  location: string | null; notes: string | null; created_at: string;
+};
+type TrainingSessionInsert = PlayerOwnedInsert & {
+  id?: Id; training_date?: string; duration_minutes?: number | null;
+  session_type?: string; focus?: string | null; intensity?: number | null;
+  location?: string | null; notes?: string | null; created_at?: string;
+};
+type TournamentRow = PlayerOwned & {
+  id: Id; name: string; start_date: string; end_date: string | null;
+  location: string | null; surface: string | null; category: string | null;
+  notes: string | null; created_at: string;
+};
+type TournamentInsert = PlayerOwnedInsert & {
+  id?: Id; name: string; start_date: string; end_date?: string | null;
+  location?: string | null; surface?: string | null; category?: string | null;
+  notes?: string | null; created_at?: string;
+};
+type TournamentMatchRow = PlayerOwned & {
+  id: Id; tournament_id: Id; match_date: string | null; round: string | null;
+  opponent: string; outcome: string; score: string | null; notes: string | null;
+  created_at: string;
+};
+type TournamentMatchInsert = PlayerOwnedInsert & {
+  id?: Id; tournament_id: Id; match_date?: string | null; round?: string | null;
+  opponent: string; outcome: string; score?: string | null; notes?: string | null;
+  created_at?: string;
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -203,6 +234,13 @@ export type Database = {
         StringingRow,
         StringingInsert,
         [RacketRelation, MainReelRelation, CrossReelRelation, StringerRelation, SameOwnerRacketRelation, SameOwnerMainReelRelation, SameOwnerCrossReelRelation, SameOwnerStringerRelation]
+      >;
+      tennis_training_sessions: Table<TrainingSessionRow, TrainingSessionInsert>;
+      tournaments: Table<TournamentRow, TournamentInsert>;
+      tournament_matches: Table<
+        TournamentMatchRow,
+        TournamentMatchInsert,
+        [Relationship<"tournament_matches_tournament_owner_fk", ["user_id", "tournament_id"], "tournaments", ["user_id", "id"]>]
       >;
     };
     Views: Record<string, never>;
