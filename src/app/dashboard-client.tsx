@@ -73,7 +73,7 @@ function Overview({ data, currencyCode, locale, onViewAll }: { data: DashboardSn
       <article className="stat-card spend-card"><div className="stat-heading"><span>Total spent</span><span className="stat-icon">▣</span></div><strong>{formatCurrency(totalSpent, currencyCode, locale)}</strong><p>Rackets {formatCurrency(data.racketSpend, currencyCode, locale)} <i>·</i> String reels {formatCurrency(data.stringSpend, currencyCode, locale)} <i>·</i> Stringing service {formatCurrency(data.serviceSpend, currencyCode, locale)}</p></article>
     </div>
     <section className="data-section overview-latest">
-      <div className="section-heading"><div><h2>Latest stringings</h2><p>Your most recent restringing sessions.</p></div><button className="text-link" type="button" onClick={onViewAll}>View all <span>→</span></button></div>
+      <div className="section-heading"><div><h2>Latest stringings</h2><p>Your most recent restringing sessions.</p></div><button className="text-link" type="button" onClick={() => onViewAll()}>View all <span>→</span></button></div>
       <StringingTable rows={data.stringings.slice(0, 3)} compact />
     </section>
     <section className="future-preview-section">
