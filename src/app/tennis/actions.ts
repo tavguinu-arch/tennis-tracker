@@ -68,7 +68,7 @@ export async function createTennisRecord(
       const headSize = optionalNumber(formData, "head_size");
       const weight = optionalNumber(formData, "weight_grams");
       if (!brand || !modelName || !headSize.valid || !weight.valid) return { error: "Enter a brand and model name, and check the optional numeric fields." };
-      ({ error } = await supabase.from("racket_models").insert({
+      const values = {
         user_id: user.id,
         brand,
         model_name: modelName,
@@ -76,7 +76,12 @@ export async function createTennisRecord(
         weight_grams: weight.value,
         string_pattern: text(formData, "string_pattern", 30) || null,
         notes,
-      }));
+      };
+      const result = recordId.value
+        ? await supabase.from("racket_models").update(values).eq("id", recordId.value).eq("user_id", user.id).select("id")
+        : await supabase.from("racket_models").insert(values);
+      error = result.error;
+      if (!error && recordId.value && result.data?.length === 0) return { error: "This model was not found in your account." };
       break;
     }
     case "racket": {
@@ -85,7 +90,7 @@ export async function createTennisRecord(
       const purchaseDate = optionalDate(formData, "purchase_date");
       const price = optionalNumber(formData, "price");
       if (!identifier || !modelId.valid || !purchaseDate.valid || !price.valid) return { error: "Check the racket name, date and price." };
-      ({ error } = await supabase.from("rackets").insert({
+      const values = {
         user_id: user.id,
         identifier,
         model_id: modelId.value,
@@ -93,26 +98,41 @@ export async function createTennisRecord(
         price: price.value,
         is_active: formData.get("is_active") === "on",
         notes,
-      }));
+      };
+      const result = recordId.value
+        ? await supabase.from("rackets").update(values).eq("id", recordId.value).eq("user_id", user.id).select("id")
+        : await supabase.from("rackets").insert(values);
+      error = result.error;
+      if (!error && recordId.value && result.data?.length === 0) return { error: "This racket was not found in your account." };
       break;
     }
     case "stringer": {
       const name = text(formData, "name", 120);
       if (!name) return { error: "Enter the stringer’s name." };
-      ({ error } = await supabase.from("stringers").insert({ user_id: user.id, name, notes }));
+      const values = { user_id: user.id, name, notes };
+      const result = recordId.value
+        ? await supabase.from("stringers").update(values).eq("id", recordId.value).eq("user_id", user.id).select("id")
+        : await supabase.from("stringers").insert(values);
+      error = result.error;
+      if (!error && recordId.value && result.data?.length === 0) return { error: "This stringer was not found in your account." };
       break;
     }
     case "string": {
       const brand = text(formData, "brand", 100);
       const name = text(formData, "name", 120);
       if (!brand || !name) return { error: "Enter the string brand and name." };
-      ({ error } = await supabase.from("strings").insert({
+      const values = {
         user_id: user.id,
         brand,
         name,
         type: text(formData, "type", 80) || null,
         gauge: text(formData, "gauge", 30) || null,
-      }));
+      };
+      const result = recordId.value
+        ? await supabase.from("strings").update(values).eq("id", recordId.value).eq("user_id", user.id).select("id")
+        : await supabase.from("strings").insert(values);
+      error = result.error;
+      if (!error && recordId.value && result.data?.length === 0) return { error: "This string was not found in your account." };
       break;
     }
     case "reel": {
@@ -121,14 +141,19 @@ export async function createTennisRecord(
       const price = optionalNumber(formData, "price");
       const capacity = requiredNumber(formData, "total_stringings", 1);
       if (!stringId.valid || !purchaseDate.valid || !price.valid || !capacity.valid || !Number.isInteger(capacity.value)) return { error: "Select a string and check the purchase date, price and reel capacity." };
-      ({ error } = await supabase.from("string_reels").insert({
+      const values = {
         user_id: user.id,
         string_id: stringId.value,
         purchase_date: purchaseDate.value,
         price: price.value,
         total_stringings: capacity.value,
         notes,
-      }));
+      };
+      const result = recordId.value
+        ? await supabase.from("string_reels").update(values).eq("id", recordId.value).eq("user_id", user.id).select("id")
+        : await supabase.from("string_reels").insert(values);
+      error = result.error;
+      if (!error && recordId.value && result.data?.length === 0) return { error: "This reel was not found in your account." };
       break;
     }
     case "stringing": {

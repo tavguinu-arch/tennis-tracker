@@ -77,32 +77,37 @@ function Overview({ data, currencyCode, onViewAll }: { data: DashboardSnapshot; 
   </>;
 }
 
-function RacketsView({ data, onAction }: { data: DashboardSnapshot; onAction: (label: string) => void }) {
+type EditableRecord = { kind: RecordKind; id: number; values: Record<string, string | number | boolean | null> };
+
+function RacketsView({ data, onAction, onEdit }: { data: DashboardSnapshot; onAction: (label: string) => void; onEdit: (record: EditableRecord) => void }) {
+  const editModel = (id: number) => { const row = data.racketModels.find((item) => item.id === id)!; onEdit({ kind: "model", id, values: { brand: row.brand, model_name: row.name, head_size: row.headSize, weight_grams: row.weightGrams, string_pattern: row.stringPattern, notes: row.notes } }); };
   return <>
     <PageTitle title="Rackets" actions={<><ActionButton secondary onClick={() => onAction("New model")}>New model</ActionButton><ActionButton onClick={() => onAction("New racket")}>＋ New racket</ActionButton></>} />
-    <section className="data-section"><DataTable headers={["Racket", "Model", "Bought", "Price"]} rows={data.rackets.map((r) => [r.name, r.model, r.bought, r.price])} /></section>
+    <section className="data-section"><DataTable headers={["Racket", "Model", "Bought", "Price"]} rows={data.rackets.map((r) => [r.name, r.model, r.bought, r.price])} onEdit={(i) => { const r = data.rackets[i]; onEdit({ kind: "racket", id: r.id, values: { identifier: r.name, model_id: r.modelId, purchase_date: r.purchaseDate, price: r.priceValue, is_active: r.isActive, notes: r.notes } }); }} /></section>
+    <section className="strings-section type-section"><div className="section-heading"><div><h2>Racket models</h2></div></div><div className="data-section"><DataTable headers={["Brand", "Model", "Head size", "Weight", "Pattern"]} rows={data.racketModels.map((m) => [m.brand, m.name, m.headSize === null ? "—" : String(m.headSize), m.weightGrams === null ? "—" : String(m.weightGrams), m.stringPattern])} onEdit={(i) => editModel(data.racketModels[i].id)} /></div></section>
     <div className="footnote">{data.rackets.length} rackets <span>·</span> Your current racket lineup</div>
   </>;
 }
 
-function StringingsView({ data, onAction, onEdit }: { data: DashboardSnapshot; onAction: (label: string) => void; onEdit: (row: StringingSummary) => void }) {
+function StringingsView({ data, onAction, onEdit, onEditStringer }: { data: DashboardSnapshot; onAction: (label: string) => void; onEdit: (row: StringingSummary) => void; onEditStringer: (record: EditableRecord) => void }) {
   return <>
     <PageTitle title="Stringings" actions={<><ActionButton secondary onClick={() => onAction("New stringer")}>New stringer</ActionButton><ActionButton onClick={() => onAction("New stringing")}>＋ New stringing</ActionButton></>} />
     <section className="data-section"><StringingTable rows={data.stringings} onEdit={onEdit} /></section>
+    <section className="strings-section type-section"><div className="section-heading"><div><h2>Stringers</h2></div></div><div className="data-section"><DataTable headers={["Name"]} rows={data.stringers.map((s) => [s.name])} onEdit={(i) => { const s = data.stringers[i]; onEditStringer({ kind: "stringer", id: s.id, values: { name: s.name, notes: s.notes } }); }} /></div></section>
     <div className="footnote">Showing recent sessions <span>·</span> {data.stringingsCount} stringings total</div>
   </>;
 }
 
-function StringsView({ data, onAction }: { data: DashboardSnapshot; onAction: (label: string) => void }) {
+function StringsView({ data, onAction, onEdit }: { data: DashboardSnapshot; onAction: (label: string) => void; onEdit: (record: EditableRecord) => void }) {
   return <>
     <PageTitle title="Strings" actions={<><ActionButton secondary onClick={() => onAction("New string")}>New string</ActionButton><ActionButton onClick={() => onAction("New reel")}>＋ New reel</ActionButton></>} />
     <section className="strings-section">
       <div className="section-heading"><div><h2>Reels</h2><p>A reel holds about 17 stringings (16 to 18). Each stringing uses 0.5 of the reel for mains and 0.5 for crosses, so a full bed from one reel uses 1. Select a row to edit it.</p></div></div>
-      <div className="data-section"><DataTable headers={["Reel", "Bought", "Price", "Used for mains"]} rows={data.reels.map((reel) => [reel.name, reel.bought, reel.price, reel.usedForMains])} /></div>
+      <div className="data-section"><DataTable headers={["Reel", "Bought", "Price", "Used for mains"]} rows={data.reels.map((reel) => [reel.name, reel.bought, reel.price, reel.usedForMains])} onEdit={(i) => { const r = data.reels[i]; onEdit({ kind: "reel", id: r.id, values: { string_id: r.stringId, purchase_date: r.purchaseDate, price: r.priceValue, total_stringings: r.totalStringingsValue, notes: r.notes } }); }} /></div>
     </section>
     <section className="strings-section type-section">
       <div className="section-heading"><div><h2>String types</h2></div></div>
-      <div className="data-section"><DataTable headers={["Brand", "String", "Type", "Gauge"]} rows={data.strings.map((item) => [item.brand, item.name, item.type, item.gauge])} /></div>
+      <div className="data-section"><DataTable headers={["Brand", "String", "Type", "Gauge"]} rows={data.strings.map((item) => [item.brand, item.name, item.type, item.gauge])} onEdit={(i) => { const s = data.strings[i]; onEdit({ kind: "string", id: s.id, values: { brand: s.brand, name: s.name, type: s.type, gauge: s.gauge } }); }} /></div>
     </section>
   </>;
 }
@@ -141,8 +146,8 @@ function ProfileView({ profileName, email, preferences, preview, saved }: { prof
   </>;
 }
 
-function DataTable({ headers, rows }: { headers: string[]; rows: (string | null)[][] }) {
-  return <div className="table-scroll"><table><thead><tr>{headers.map((header) => <th key={header}>{header}<span className="sort-mark">↕</span></th>)}</tr></thead><tbody>{rows.map((row, rowIndex) => <tr key={`${row[0]}-${rowIndex}`}>{row.map((cell, cellIndex) => <td key={`${cell}-${cellIndex}`}>{cell}</td>)}</tr>)}</tbody></table></div>;
+function DataTable({ headers, rows, onEdit }: { headers: string[]; rows: (string | null)[][]; onEdit?: (index: number) => void }) {
+  return <div className="table-scroll"><table><thead><tr>{headers.map((header) => <th key={header}>{header}<span className="sort-mark">↕</span> </th>)}{onEdit && <th>Actions</th>}</tr></thead><tbody>{rows.map((row, rowIndex) => <tr key={`${row[0]}-${rowIndex}`}>{row.map((cell, cellIndex) => <td key={`${cell}-${cellIndex}`}>{cell}</td>)}{onEdit && <td><button type="button" className="text-link" onClick={() => onEdit(rowIndex)}>Edit</button></td>}</tr>)}</tbody></table></div>;
 }
 
 function StringingTable({ rows, compact = false, onEdit }: { rows: StringingSummary[]; compact?: boolean; onEdit?: (row: StringingSummary) => void }) {
@@ -160,7 +165,7 @@ const recordLabels: Record<RecordKind, string> = {
   reel: "New reel",
 };
 
-function RecordDialog({ kind, data, onClose, editing }: { kind: RecordKind; data: DashboardSnapshot; onClose: () => void; editing?: StringingSummary }) {
+function RecordDialog({ kind, data, onClose, editing }: { kind: RecordKind; data: DashboardSnapshot; onClose: () => void; editing?: EditableRecord }) {
   const router = useRouter();
   const [state, formAction, pending] = useActionState<RecordActionState, FormData>(createTennisRecord, {});
   useEffect(() => {
@@ -169,50 +174,54 @@ function RecordDialog({ kind, data, onClose, editing }: { kind: RecordKind; data
       router.refresh();
     }
   }, [state.success, onClose, router]);
+  const value = (key: string, fallback: string | number = ""): string | number => {
+    const current = editing?.values[key];
+    return current === null || typeof current === "boolean" || current === undefined ? fallback : current;
+  };
 
   return <div className="record-dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
     <section className="record-dialog" role="dialog" aria-modal="true" aria-labelledby="record-dialog-title">
-      <div className="record-dialog-heading"><div><span>PLAYER RECORD</span><h2 id="record-dialog-title">{editing ? "Edit stringing" : recordLabels[kind]}</h2></div><button type="button" className="record-dialog-close" aria-label="Close" onClick={onClose}>×</button></div>
+      <div className="record-dialog-heading"><div><span>PLAYER RECORD</span><h2 id="record-dialog-title">{editing ? `Edit ${kind}` : recordLabels[kind]}</h2></div><button type="button" className="record-dialog-close" aria-label="Close" onClick={onClose}>×</button></div>
       <form action={formAction} className="record-form">
         <input type="hidden" name="kind" value={kind} />
         {editing && <input type="hidden" name="record_id" value={editing.id} />}
         {kind === "model" && <>
-          <label>Brand<input name="brand" required maxLength={100} placeholder="e.g. Tecnifibre" /></label>
-          <label>Model name<input name="model_name" required maxLength={120} placeholder="e.g. TFight 300" /></label>
-          <div className="record-form-row"><label>Head size (in²)<input name="head_size" type="number" min="0" step="any" /></label><label>Weight (g)<input name="weight_grams" type="number" min="0" step="any" /></label></div>
-          <label>String pattern<input name="string_pattern" maxLength={30} placeholder="e.g. 16×19" /></label>
-          <label>Notes<textarea name="notes" maxLength={1000} rows={2} /></label>
+          <label>Brand<input name="brand" required maxLength={100} placeholder="e.g. Tecnifibre" defaultValue={value("brand")} /></label>
+          <label>Model name<input name="model_name" required maxLength={120} placeholder="e.g. TFight 300" defaultValue={value("model_name")} /></label>
+          <div className="record-form-row"><label>Head size (in²)<input name="head_size" type="number" min="0" step="any" defaultValue={value("head_size")} /></label><label>Weight (g)<input name="weight_grams" type="number" min="0" step="any" defaultValue={value("weight_grams")} /></label></div>
+          <label>String pattern<input name="string_pattern" maxLength={30} placeholder="e.g. 16×19" defaultValue={value("string_pattern")} /></label>
+          <label>Notes<textarea name="notes" maxLength={1000} rows={2} defaultValue={value("notes")} /></label>
         </>}
         {kind === "racket" && <>
-          <label>Racket identifier<input name="identifier" required maxLength={80} placeholder="e.g. Racket 4" /></label>
-          <label>Model<select name="model_id" defaultValue=""><option value="">Choose a model</option>{data.racketModels.map((model) => <option key={model.id} value={model.id}>{model.brand} {model.name}</option>)}</select></label>
-          <div className="record-form-row"><label>Purchase date<input name="purchase_date" type="date" /></label><label>Price (€)<input name="price" type="number" min="0" step="0.01" /></label></div>
-          <label className="record-checkbox"><input type="checkbox" name="is_active" defaultChecked /> Active racket</label>
-          <label>Notes<textarea name="notes" maxLength={1000} rows={2} /></label>
+          <label>Racket identifier<input name="identifier" required maxLength={80} placeholder="e.g. Racket 4" defaultValue={value("identifier")} /></label>
+          <label>Model<select name="model_id" defaultValue={value("model_id")}><option value="">Choose a model</option>{data.racketModels.map((model) => <option key={model.id} value={model.id}>{model.brand} {model.name}</option>)}</select></label>
+          <div className="record-form-row"><label>Purchase date<input name="purchase_date" type="date" defaultValue={value("purchase_date")} /></label><label>Price (€)<input name="price" type="number" min="0" step="0.01" defaultValue={value("price")} /></label></div>
+          <label className="record-checkbox"><input type="checkbox" name="is_active" defaultChecked={editing ? editing.values.is_active === true : true} /> Active racket</label>
+          <label>Notes<textarea name="notes" maxLength={1000} rows={2} defaultValue={value("notes")} /></label>
         </>}
         {kind === "stringer" && <>
-          <label>Name<input name="name" required maxLength={120} placeholder="Stringer name" /></label>
-          <label>Notes<textarea name="notes" maxLength={1000} rows={3} /></label>
+          <label>Name<input name="name" required maxLength={120} placeholder="Stringer name" defaultValue={value("name")} /></label>
+          <label>Notes<textarea name="notes" maxLength={1000} rows={3} defaultValue={value("notes")} /></label>
         </>}
         {kind === "string" && <>
-          <div className="record-form-row"><label>Brand<input name="brand" required maxLength={100} placeholder="e.g. Solinco" /></label><label>String name<input name="name" required maxLength={120} placeholder="e.g. Hyper-G Soft" /></label></div>
-          <div className="record-form-row"><label>Type<input name="type" maxLength={80} placeholder="e.g. Polyester" /></label><label>Gauge<input name="gauge" maxLength={30} placeholder="e.g. 1.20" /></label></div>
+          <div className="record-form-row"><label>Brand<input name="brand" required maxLength={100} placeholder="e.g. Solinco" defaultValue={value("brand")} /></label><label>String name<input name="name" required maxLength={120} placeholder="e.g. Hyper-G Soft" defaultValue={value("name")} /></label></div>
+          <div className="record-form-row"><label>Type<input name="type" maxLength={80} placeholder="e.g. Polyester" defaultValue={value("type")} /></label><label>Gauge<input name="gauge" maxLength={30} placeholder="e.g. 1.20" defaultValue={value("gauge")} /></label></div>
         </>}
         {kind === "reel" && <>
-          <label>String<select name="string_id" required defaultValue=""><option value="">Choose a string</option>{data.strings.map((string) => <option key={string.id} value={string.id}>{string.brand} {string.name} {string.gauge}</option>)}</select></label>
-          <div className="record-form-row"><label>Purchase date<input name="purchase_date" type="date" /></label><label>Price (€)<input name="price" type="number" min="0" step="0.01" /></label></div>
-          <label>Capacity (full stringings)<input name="total_stringings" type="number" required min="1" step="1" defaultValue="17" /></label>
-          <label>Notes<textarea name="notes" maxLength={1000} rows={2} /></label>
+          <label>String<select name="string_id" required defaultValue={value("string_id")}><option value="">Choose a string</option>{data.strings.map((string) => <option key={string.id} value={string.id}>{string.brand} {string.name} {string.gauge}</option>)}</select></label>
+          <div className="record-form-row"><label>Purchase date<input name="purchase_date" type="date" defaultValue={value("purchase_date")} /></label><label>Price (€)<input name="price" type="number" min="0" step="0.01" defaultValue={value("price")} /></label></div>
+          <label>Capacity (full stringings)<input name="total_stringings" type="number" required min="1" step="1" defaultValue={value("total_stringings", 17)} /></label>
+          <label>Notes<textarea name="notes" maxLength={1000} rows={2} defaultValue={value("notes")} /></label>
         </>}
         {kind === "stringing" && <>
-          <label>Racket<select name="racket_id" required defaultValue={editing?.racketId ?? ""}><option value="">Choose a racket</option>{data.rackets.map((racket) => <option key={racket.id} value={racket.id}>{racket.name} · {racket.model}</option>)}</select></label>
-          <div className="record-form-row"><label>Main reel<select name="main_reel_id" required defaultValue={editing?.mainReelId ?? ""}><option value="">Choose a reel</option>{data.reels.map((reel) => <option key={reel.id} value={reel.id}>{reel.name}</option>)}</select></label><label>Cross reel<select name="cross_reel_id" required defaultValue={editing?.crossReelId ?? ""}><option value="">Choose a reel</option>{data.reels.map((reel) => <option key={reel.id} value={reel.id}>{reel.name}</option>)}</select></label></div>
-          <div className="record-form-row"><label>Main tension<input name="main_tension_kg" type="number" required min="1" step="0.1" defaultValue={editing?.mainTension ?? 23} /></label><label>Unit<select name="main_tension_unit" defaultValue={editing?.mainUnit ?? "kg"}><option value="kg">kg</option><option value="lb">lb</option></select></label></div>
-          <div className="record-form-row"><label>Cross tension<input name="cross_tension_kg" type="number" required min="1" step="0.1" defaultValue={editing?.crossTension ?? 23} /></label><label>Unit<select name="cross_tension_unit" defaultValue={editing?.crossUnit ?? "kg"}><option value="kg">kg</option><option value="lb">lb</option></select></label></div>
-          <div className="record-form-row"><label>Stringer<select name="stringer_id" defaultValue={editing?.stringerId ?? ""}><option value="">Not specified</option>{data.stringers.map((stringer) => <option key={stringer.id} value={stringer.id}>{stringer.name}</option>)}</select></label><label>Date<input name="stringing_date" type="date" defaultValue={editing?.stringingDate ?? ""} /></label></div>
-          <div className="record-form-row"><label>Service cost (€)<input name="service_cost" type="number" min="0" step="0.01" defaultValue={editing?.serviceCost ?? ""} /></label><label>Hours played<input name="hours_played" type="number" min="0" step="0.5" defaultValue={editing?.hoursPlayed ?? ""} /></label></div>
-          <label>Replacement reason<input name="replacement_reason" maxLength={120} placeholder="Optional" defaultValue={editing?.replacementReason ?? ""} /></label>
-          <label>Notes<textarea name="notes" maxLength={1000} rows={2} defaultValue={editing?.notes ?? ""} /></label>
+          <label>Racket<select name="racket_id" required defaultValue={value("racket_id")}><option value="">Choose a racket</option>{data.rackets.map((racket) => <option key={racket.id} value={racket.id}>{racket.name} · {racket.model}</option>)}</select></label>
+          <div className="record-form-row"><label>Main reel<select name="main_reel_id" required defaultValue={value("main_reel_id")}><option value="">Choose a reel</option>{data.reels.map((reel) => <option key={reel.id} value={reel.id}>{reel.name}</option>)}</select></label><label>Cross reel<select name="cross_reel_id" required defaultValue={value("cross_reel_id")}><option value="">Choose a reel</option>{data.reels.map((reel) => <option key={reel.id} value={reel.id}>{reel.name}</option>)}</select></label></div>
+          <div className="record-form-row"><label>Main tension<input name="main_tension_kg" type="number" required min="1" step="0.1" defaultValue={value("main_tension_kg", 23)} /></label><label>Unit<select name="main_tension_unit" defaultValue={value("main_tension_unit", "kg")}><option value="kg">kg</option><option value="lb">lb</option></select></label></div>
+          <div className="record-form-row"><label>Cross tension<input name="cross_tension_kg" type="number" required min="1" step="0.1" defaultValue={value("cross_tension_kg", 23)} /></label><label>Unit<select name="cross_tension_unit" defaultValue={value("cross_tension_unit", "kg")}><option value="kg">kg</option><option value="lb">lb</option></select></label></div>
+          <div className="record-form-row"><label>Stringer<select name="stringer_id" defaultValue={value("stringer_id")}><option value="">Not specified</option>{data.stringers.map((stringer) => <option key={stringer.id} value={stringer.id}>{stringer.name}</option>)}</select></label><label>Date<input name="stringing_date" type="date" defaultValue={value("stringing_date")} /></label></div>
+          <div className="record-form-row"><label>Service cost (€)<input name="service_cost" type="number" min="0" step="0.01" defaultValue={value("service_cost")} /></label><label>Hours played<input name="hours_played" type="number" min="0" step="0.5" defaultValue={value("hours_played")} /></label></div>
+          <label>Replacement reason<input name="replacement_reason" maxLength={120} placeholder="Optional" defaultValue={value("replacement_reason")} /></label>
+          <label>Notes<textarea name="notes" maxLength={1000} rows={2} defaultValue={value("notes")} /></label>
         </>}
         {state.error && <p className="record-form-error" role="alert">{state.error}</p>}
         <div className="record-form-actions"><button type="button" className="action-button secondary" onClick={onClose}>Cancel</button><button type="submit" className="action-button primary" disabled={pending}>{pending ? "Saving…" : editing ? "Save changes" : "Save record"}</button></div>
@@ -224,7 +233,7 @@ function RecordDialog({ kind, data, onClose, editing }: { kind: RecordKind; data
 export default function DashboardClient({ data, profileName, email = "", preferences, saved = false, profileError = null, loadError = null }: { data: DashboardSnapshot | null; profileName: string; email?: string; preferences?: ProfilePreferences; saved?: boolean; profileError?: string | null; loadError?: string | null }) {
   const [view, setView] = useState<View>("Overview");
   const [recordKind, setRecordKind] = useState<RecordKind | null>(null);
-  const [editingStringing, setEditingStringing] = useState<StringingSummary | undefined>();
+  const [editingRecord, setEditingRecord] = useState<EditableRecord | undefined>();
   const preview = data === null;
   const currentData: DashboardSnapshot = data ?? {
     activeRackets: 3,
@@ -251,15 +260,15 @@ export default function DashboardClient({ data, profileName, email = "", prefere
       {!preview && !loadError && currentData.rackets.length === 0 && currentData.stringingsCount === 0 && <div className="empty-account-note">Your account is ready. No tennis records are assigned to it yet.</div>}
       {profileError && <div className="action-feedback" role="alert">{profileError === "invalid-settings" ? "One or more preferences are not valid." : "Your preferences could not be saved."}</div>}
       {view === "Overview" && <Overview data={currentData} currencyCode={currentPreferences.currency_code} onViewAll={() => setView("Stringings")} />}
-      {view === "Rackets" && <RacketsView data={currentData} onAction={handleAction} />}
-      {view === "Stringings" && <StringingsView data={currentData} onAction={handleAction} onEdit={(row) => { setEditingStringing(row); setRecordKind("stringing"); }} />}
-      {view === "Strings" && <StringsView data={currentData} onAction={handleAction} />}
+      {view === "Rackets" && <RacketsView data={currentData} onAction={handleAction} onEdit={(record) => { setEditingRecord(record); setRecordKind(record.kind); }} />}
+      {view === "Stringings" && <StringingsView data={currentData} onAction={handleAction} onEdit={(row) => { setEditingRecord({ kind: "stringing", id: row.id, values: { racket_id: row.racketId, main_reel_id: row.mainReelId, cross_reel_id: row.crossReelId, stringer_id: row.stringerId, main_tension_kg: row.mainTension, cross_tension_kg: row.crossTension, main_tension_unit: row.mainUnit, cross_tension_unit: row.crossUnit, service_cost: row.serviceCost, hours_played: row.hoursPlayed, stringing_date: row.stringingDate, replacement_reason: row.replacementReason, notes: row.notes } }); setRecordKind("stringing"); }} onEditStringer={(record) => { setEditingRecord(record); setRecordKind(record.kind); }} />}
+      {view === "Strings" && <StringsView data={currentData} onAction={handleAction} onEdit={(record) => { setEditingRecord(record); setRecordKind(record.kind); }} />}
       {view === "Profile" && <ProfileView profileName={profileName} email={email} preferences={currentPreferences} preview={preview} saved={saved} />}
       <footer className="app-footer">Tennis Tracker <span>·</span> Equipment, strings and restringing history</footer>
     </div>
     <nav className="mobile-nav" aria-label="Main navigation">
       {views.map((item) => <button type="button" key={item.name} className={view === item.name ? "mobile-nav-item selected" : "mobile-nav-item"} onClick={() => setView(item.name)}><span className="mobile-nav-icon">{item.icon}</span><span>{item.name}</span></button>)}
     </nav>
-    {recordKind && <RecordDialog kind={recordKind} data={currentData} editing={editingStringing} onClose={() => { setRecordKind(null); setEditingStringing(undefined); }} />}
+    {recordKind && <RecordDialog kind={recordKind} data={currentData} editing={editingRecord} onClose={() => { setRecordKind(null); setEditingRecord(undefined); }} />}
   </main>;
 }
