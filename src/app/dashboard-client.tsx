@@ -4,7 +4,7 @@ import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { DashboardSnapshot, RacketSummary, StringingSummary } from "@/lib/tennis/dashboard";
 import { formatCurrency } from "@/lib/tennis/dashboard";
-import { saveProfileSettings, signOut } from "@/app/auth/actions";
+import { changePassword, deleteAccount, saveProfileSettings, signOut } from "@/app/auth/actions";
 import { createTennisRecord, type RecordActionState } from "@/app/tennis/actions";
 
 type View = "Overview" | "Rackets" | "Stringings" | "Strings" | "Profile";
@@ -61,14 +61,14 @@ function PreviewNotice({ preview, loadError }: { preview: boolean; loadError: st
   return <div className={loadError ? "preview-notice error-notice" : "preview-notice"}><span className="notice-symbol">i</span><span>{message}</span></div>;
 }
 
-function Overview({ data, currencyCode, onViewAll }: { data: DashboardSnapshot; currencyCode: string; onViewAll: () => void }) {
+function Overview({ data, currencyCode, locale, onViewAll }: { data: DashboardSnapshot; currencyCode: string; locale: string; onViewAll: () => void }) {
   const totalSpent = data.racketSpend + data.stringSpend + data.serviceSpend;
   return <>
     <PageTitle title="Overview" />
     <div className="stat-grid">
       <article className="stat-card"><div className="stat-heading"><span>Active rackets</span><span className="stat-icon">⌁</span></div><strong>{data.activeRackets}</strong></article>
       <article className="stat-card"><div className="stat-heading"><span>Stringings</span><span className="stat-icon">⚒</span></div><strong>{data.stringingsCount}</strong></article>
-      <article className="stat-card spend-card"><div className="stat-heading"><span>Total spent</span><span className="stat-icon">▣</span></div><strong>{formatCurrency(totalSpent, currencyCode)}</strong><p>Rackets {formatCurrency(data.racketSpend, currencyCode)} <i>·</i> String reels {formatCurrency(data.stringSpend, currencyCode)} <i>·</i> Stringing service {formatCurrency(data.serviceSpend, currencyCode)}</p></article>
+      <article className="stat-card spend-card"><div className="stat-heading"><span>Total spent</span><span className="stat-icon">▣</span></div><strong>{formatCurrency(totalSpent, currencyCode, locale)}</strong><p>Rackets {formatCurrency(data.racketSpend, currencyCode, locale)} <i>·</i> String reels {formatCurrency(data.stringSpend, currencyCode, locale)} <i>·</i> Stringing service {formatCurrency(data.serviceSpend, currencyCode, locale)}</p></article>
     </div>
     <section className="data-section overview-latest">
       <div className="section-heading"><div><h2>Latest stringings</h2><p>Your most recent restringing sessions.</p></div><button className="text-link" type="button" onClick={onViewAll}>View all <span>→</span></button></div>
@@ -114,11 +114,13 @@ function StringsView({ data, onAction, onEdit }: { data: DashboardSnapshot; onAc
 
 type ProfilePreferences = { locale: string; currency_code: string; timezone: string; preferred_tension_unit: string; theme: string };
 
-function ProfileView({ profileName, email, preferences, preview, saved }: { profileName: string; email: string; preferences: ProfilePreferences; preview: boolean; saved: boolean }) {
+function ProfileView({ profileName, email, preferences, preview, saved, accountMessage, accountError, accountDeletionEnabled }: { profileName: string; email: string; preferences: ProfilePreferences; preview: boolean; saved: boolean; accountMessage: string | null; accountError: string | null; accountDeletionEnabled: boolean }) {
   return <>
     <form id="profile-settings-form" action={saveProfileSettings} />
     <PageTitle title="Player profile & app settings" actions={<button form="profile-settings-form" type="submit" className="action-button primary">Save settings</button>} />
     {saved && <div className="settings-saved" role="status">Your preferences have been saved.</div>}
+    {accountMessage && <div className="settings-saved" role="status">{{"password-updated":"Your password has been updated."}[accountMessage] ?? "Your account action is complete."}</div>}
+    {accountError && <div className="record-form-error" role="alert">{{"password-invalid":"Use a new password with at least 8 characters and confirm it correctly.","password-current":"The current password is incorrect.","password-update":"The password could not be updated.","delete-confirmation":"Type DELETE and enter your current password to continue.","delete-password":"The current password is incorrect.","delete-failed":"The account could not be deleted. Please try again."}[accountError] ?? "The account action could not be completed."}</div>}
     <div className="profile-grid">
       <section className="profile-card profile-identity">
         <div className="profile-avatar-large">{profileName.split(/\s+/).map((part) => part[0]).slice(0, 2).join("").toUpperCase() || "TP"}</div>
@@ -138,10 +140,21 @@ function ProfileView({ profileName, email, preferences, preview, saved }: { prof
           <div><label htmlFor="profile-tension">Preferred tension unit</label><select id="profile-tension" name="preferred_tension_unit" form="profile-settings-form" defaultValue={preferences.preferred_tension_unit}><option value="kg">Kilograms (kg)</option><option value="lb">Pounds (lb)</option></select></div>
           <div><label htmlFor="profile-theme">Appearance</label><select id="profile-theme" name="theme" form="profile-settings-form" defaultValue={preferences.theme}><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></div>
         </div>
+        <p className="preference-note">Language changes date and number formatting; the interface text is currently English. Currency changes the display unit without converting existing amounts. Racket and stringing dates currently store no time of day, so time zone will apply to future time-based records.</p>
+      </section>
+      <section className="profile-card">
+        <div className="section-heading"><div><h2>Account security</h2><p>Change your password after confirming your current one.</p></div></div>
+        <form action={changePassword} className="record-form profile-action-form">
+          <label>Current password<input name="current_password" type="password" autoComplete="current-password" required /></label>
+          <label>New password<input name="password" type="password" autoComplete="new-password" minLength={8} required /></label>
+          <label>Confirm new password<input name="confirmation" type="password" autoComplete="new-password" minLength={8} required /></label>
+          <button type="submit" className="action-button secondary">Change password</button>
+        </form>
       </section>
       <section className="profile-card privacy-card">
-        <span className="privacy-icon">◇</span><div><h2>Private player data</h2><p>Equipment, stringings and future training or tournament records are scoped to this profile and protected by Supabase Auth and RLS.</p><form action={signOut}><button type="submit" className="text-link sign-out-link">Sign out</button></form></div>
+        <span className="privacy-icon">◇</span><div className="privacy-content"><h2>Privacy & personal data</h2><p>Your tennis records are private to this account. Export a copy before requesting account deletion.</p>{!preview && <a className="action-button secondary export-link" href="/api/privacy/export">Download all data (CSV files)</a>}{preview && <p className="privacy-small">Exports are available after signing into a configured player account.</p>}<p className="privacy-small">The download contains one CSV per table to preserve the links between your records.</p><form action={signOut}><button type="submit" className="text-link sign-out-link">Sign out</button></form></div>
       </section>
+      {!preview && <section className="profile-card deletion-card"><div className="section-heading"><div><h2>Delete account</h2><p>This immediately removes your account, profile and tennis records. Export your data first if you want to keep a copy.</p></div></div>{accountDeletionEnabled ? <form action={deleteAccount} className="record-form profile-action-form"><label>Current password<input name="current_password" type="password" autoComplete="current-password" required /></label><label>Type DELETE to confirm<input name="confirmation" autoComplete="off" required /></label><button type="submit" className="action-button danger-button">Delete account and all data</button></form> : <p className="privacy-small">Account deletion will be available after its secure database setup is completed.</p>}</section>}
     </div>
   </>;
 }
@@ -165,7 +178,7 @@ const recordLabels: Record<RecordKind, string> = {
   reel: "New reel",
 };
 
-function RecordDialog({ kind, data, onClose, editing }: { kind: RecordKind; data: DashboardSnapshot; onClose: () => void; editing?: EditableRecord }) {
+function RecordDialog({ kind, data, onClose, editing, preferences }: { kind: RecordKind; data: DashboardSnapshot; onClose: () => void; editing?: EditableRecord; preferences: ProfilePreferences }) {
   const router = useRouter();
   const [state, formAction, pending] = useActionState<RecordActionState, FormData>(createTennisRecord, {});
   useEffect(() => {
@@ -195,7 +208,7 @@ function RecordDialog({ kind, data, onClose, editing }: { kind: RecordKind; data
         {kind === "racket" && <>
           <label>Racket identifier<input name="identifier" required maxLength={80} placeholder="e.g. Racket 4" defaultValue={value("identifier")} /></label>
           <label>Model<select name="model_id" defaultValue={value("model_id")}><option value="">Choose a model</option>{data.racketModels.map((model) => <option key={model.id} value={model.id}>{model.brand} {model.name}</option>)}</select></label>
-          <div className="record-form-row"><label>Purchase date<input name="purchase_date" type="date" defaultValue={value("purchase_date")} /></label><label>Price (€)<input name="price" type="number" min="0" step="0.01" defaultValue={value("price")} /></label></div>
+          <div className="record-form-row"><label>Purchase date<input name="purchase_date" type="date" defaultValue={value("purchase_date")} /></label><label>Price ({preferences.currency_code})<input name="price" type="number" min="0" step="0.01" defaultValue={value("price")} /></label></div>
           <label className="record-checkbox"><input type="checkbox" name="is_active" defaultChecked={editing ? editing.values.is_active === true : true} /> Active racket</label>
           <label>Notes<textarea name="notes" maxLength={1000} rows={2} defaultValue={value("notes")} /></label>
         </>}
@@ -209,17 +222,17 @@ function RecordDialog({ kind, data, onClose, editing }: { kind: RecordKind; data
         </>}
         {kind === "reel" && <>
           <label>String<select name="string_id" required defaultValue={value("string_id")}><option value="">Choose a string</option>{data.strings.map((string) => <option key={string.id} value={string.id}>{string.brand} {string.name} {string.gauge}</option>)}</select></label>
-          <div className="record-form-row"><label>Purchase date<input name="purchase_date" type="date" defaultValue={value("purchase_date")} /></label><label>Price (€)<input name="price" type="number" min="0" step="0.01" defaultValue={value("price")} /></label></div>
+          <div className="record-form-row"><label>Purchase date<input name="purchase_date" type="date" defaultValue={value("purchase_date")} /></label><label>Price ({preferences.currency_code})<input name="price" type="number" min="0" step="0.01" defaultValue={value("price")} /></label></div>
           <label>Capacity (full stringings)<input name="total_stringings" type="number" required min="1" step="1" defaultValue={value("total_stringings", 17)} /></label>
           <label>Notes<textarea name="notes" maxLength={1000} rows={2} defaultValue={value("notes")} /></label>
         </>}
         {kind === "stringing" && <>
           <label>Racket<select name="racket_id" required defaultValue={value("racket_id")}><option value="">Choose a racket</option>{data.rackets.map((racket) => <option key={racket.id} value={racket.id}>{racket.name} · {racket.model}</option>)}</select></label>
           <div className="record-form-row"><label>Main reel<select name="main_reel_id" required defaultValue={value("main_reel_id")}><option value="">Choose a reel</option>{data.reels.map((reel) => <option key={reel.id} value={reel.id}>{reel.name}</option>)}</select></label><label>Cross reel<select name="cross_reel_id" required defaultValue={value("cross_reel_id")}><option value="">Choose a reel</option>{data.reels.map((reel) => <option key={reel.id} value={reel.id}>{reel.name}</option>)}</select></label></div>
-          <div className="record-form-row"><label>Main tension<input name="main_tension_kg" type="number" required min="1" step="0.1" defaultValue={value("main_tension_kg", 23)} /></label><label>Unit<select name="main_tension_unit" defaultValue={value("main_tension_unit", "kg")}><option value="kg">kg</option><option value="lb">lb</option></select></label></div>
-          <div className="record-form-row"><label>Cross tension<input name="cross_tension_kg" type="number" required min="1" step="0.1" defaultValue={value("cross_tension_kg", 23)} /></label><label>Unit<select name="cross_tension_unit" defaultValue={value("cross_tension_unit", "kg")}><option value="kg">kg</option><option value="lb">lb</option></select></label></div>
+          <div className="record-form-row"><label>Main tension<input name="main_tension_kg" type="number" required min="1" step="0.1" defaultValue={value("main_tension_kg", 23)} /></label><label>Unit<select name="main_tension_unit" defaultValue={value("main_tension_unit", preferences.preferred_tension_unit)}><option value="kg">kg</option><option value="lb">lb</option></select></label></div>
+          <div className="record-form-row"><label>Cross tension<input name="cross_tension_kg" type="number" required min="1" step="0.1" defaultValue={value("cross_tension_kg", 23)} /></label><label>Unit<select name="cross_tension_unit" defaultValue={value("cross_tension_unit", preferences.preferred_tension_unit)}><option value="kg">kg</option><option value="lb">lb</option></select></label></div>
           <div className="record-form-row"><label>Stringer<select name="stringer_id" defaultValue={value("stringer_id")}><option value="">Not specified</option>{data.stringers.map((stringer) => <option key={stringer.id} value={stringer.id}>{stringer.name}</option>)}</select></label><label>Date<input name="stringing_date" type="date" defaultValue={value("stringing_date")} /></label></div>
-          <div className="record-form-row"><label>Service cost (€)<input name="service_cost" type="number" min="0" step="0.01" defaultValue={value("service_cost")} /></label><label>Hours played<input name="hours_played" type="number" min="0" step="0.5" defaultValue={value("hours_played")} /></label></div>
+          <div className="record-form-row"><label>Service cost ({preferences.currency_code})<input name="service_cost" type="number" min="0" step="0.01" defaultValue={value("service_cost")} /></label><label>Hours played<input name="hours_played" type="number" min="0" step="0.5" defaultValue={value("hours_played")} /></label></div>
           <label>Replacement reason<input name="replacement_reason" maxLength={120} placeholder="Optional" defaultValue={value("replacement_reason")} /></label>
           <label>Notes<textarea name="notes" maxLength={1000} rows={2} defaultValue={value("notes")} /></label>
         </>}
@@ -230,8 +243,8 @@ function RecordDialog({ kind, data, onClose, editing }: { kind: RecordKind; data
   </div>;
 }
 
-export default function DashboardClient({ data, profileName, email = "", preferences, saved = false, profileError = null, loadError = null }: { data: DashboardSnapshot | null; profileName: string; email?: string; preferences?: ProfilePreferences; saved?: boolean; profileError?: string | null; loadError?: string | null }) {
-  const [view, setView] = useState<View>("Overview");
+export default function DashboardClient({ data, profileName, email = "", preferences, saved = false, profileError = null, loadError = null, accountMessage = null, accountError = null, accountDeletionEnabled = false }: { data: DashboardSnapshot | null; profileName: string; email?: string; preferences?: ProfilePreferences; saved?: boolean; profileError?: string | null; loadError?: string | null; accountMessage?: string | null; accountError?: string | null; accountDeletionEnabled?: boolean }) {
+  const [view, setView] = useState<View>(accountMessage || accountError || saved || profileError ? "Profile" : "Overview");
   const [recordKind, setRecordKind] = useState<RecordKind | null>(null);
   const [editingRecord, setEditingRecord] = useState<EditableRecord | undefined>();
   const preview = data === null;
@@ -254,21 +267,21 @@ export default function DashboardClient({ data, profileName, email = "", prefere
     const kind = kindByLabel[label];
     if (kind) setRecordKind(kind);
   };
-  return <main className="app-shell">
+  return <main className="app-shell" data-theme={currentPreferences.theme}>
     <Header view={view} setView={setView} preview={preview} profileName={profileName} />
     <div className="main-content"><PreviewNotice preview={preview} loadError={loadError} />
       {!preview && !loadError && currentData.rackets.length === 0 && currentData.stringingsCount === 0 && <div className="empty-account-note">Your account is ready. No tennis records are assigned to it yet.</div>}
       {profileError && <div className="action-feedback" role="alert">{profileError === "invalid-settings" ? "One or more preferences are not valid." : "Your preferences could not be saved."}</div>}
-      {view === "Overview" && <Overview data={currentData} currencyCode={currentPreferences.currency_code} onViewAll={() => setView("Stringings")} />}
+      {view === "Overview" && <Overview data={currentData} currencyCode={currentPreferences.currency_code} locale={currentPreferences.locale} onViewAll={() => setView("Stringings")} />}
       {view === "Rackets" && <RacketsView data={currentData} onAction={handleAction} onEdit={(record) => { setEditingRecord(record); setRecordKind(record.kind); }} />}
       {view === "Stringings" && <StringingsView data={currentData} onAction={handleAction} onEdit={(row) => { setEditingRecord({ kind: "stringing", id: row.id, values: { racket_id: row.racketId, main_reel_id: row.mainReelId, cross_reel_id: row.crossReelId, stringer_id: row.stringerId, main_tension_kg: row.mainTension, cross_tension_kg: row.crossTension, main_tension_unit: row.mainUnit, cross_tension_unit: row.crossUnit, service_cost: row.serviceCost, hours_played: row.hoursPlayed, stringing_date: row.stringingDate, replacement_reason: row.replacementReason, notes: row.notes } }); setRecordKind("stringing"); }} onEditStringer={(record) => { setEditingRecord(record); setRecordKind(record.kind); }} />}
       {view === "Strings" && <StringsView data={currentData} onAction={handleAction} onEdit={(record) => { setEditingRecord(record); setRecordKind(record.kind); }} />}
-      {view === "Profile" && <ProfileView profileName={profileName} email={email} preferences={currentPreferences} preview={preview} saved={saved} />}
+      {view === "Profile" && <ProfileView profileName={profileName} email={email} preferences={currentPreferences} preview={preview} saved={saved} accountMessage={accountMessage} accountError={accountError} accountDeletionEnabled={accountDeletionEnabled} />}
       <footer className="app-footer">Tennis Tracker <span>·</span> Equipment, strings and restringing history</footer>
     </div>
     <nav className="mobile-nav" aria-label="Main navigation">
       {views.map((item) => <button type="button" key={item.name} className={view === item.name ? "mobile-nav-item selected" : "mobile-nav-item"} onClick={() => setView(item.name)}><span className="mobile-nav-icon">{item.icon}</span><span>{item.name}</span></button>)}
     </nav>
-    {recordKind && <RecordDialog kind={recordKind} data={currentData} editing={editingRecord} onClose={() => { setRecordKind(null); setEditingRecord(undefined); }} />}
+    {recordKind && <RecordDialog kind={recordKind} data={currentData} editing={editingRecord} preferences={currentPreferences} onClose={() => { setRecordKind(null); setEditingRecord(undefined); }} />}
   </main>;
 }

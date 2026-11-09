@@ -17,6 +17,7 @@ Copy `.env.example` to `.env.local` and set:
 ```env
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_your_key
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
 ```
 
 Only use the publishable key in browser-visible configuration. Never expose a `service_role` or secret key under a `NEXT_PUBLIC_*` name. Keep RLS enabled and scope policies to the authenticated user before adding writes.
@@ -31,4 +32,6 @@ The old `raquetas` and `rolos` tables were removed from Supabase after confirmat
 
 The ownership migration restricts the old anonymous Glide connection. The dedicated test player is now registered and assigned to the existing data. New future modules (training, mental training, tournaments/results) can use their own relational tables linked to the profile; they do not need to be added to the current six tables.
 
-The Vercel project already has `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` configured for Production and Preview. The environment helper also accepts the newer `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` name for local development. The login and signup flow uses Supabase Auth, the dashboard requires a signed-in player, and its read-only queries use the player's RLS scope. Before adopting Supabase CLI migrations, reconcile the migration history because the ownership SQL was applied through the dashboard. Reel-consumption and cost calculations still need comparison against Glide behavior before any write forms are added.
+The Vercel project already has `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` configured for Production and Preview. The environment helper also accepts the newer `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` name for local development. The login and signup flow uses Supabase Auth, the dashboard requires a signed-in player, and database reads/writes use the player's RLS scope. Password reset links use `NEXT_PUBLIC_SITE_URL`; set it to the app's canonical origin in each Vercel environment. Before adopting Supabase CLI migrations, reconcile migration history because the ownership SQL was applied through the dashboard.
+
+The privacy area can export the profile and six relational tables as separate CSV files in a ZIP, change or reset the account password, and immediately delete the account after password reauthentication. Apply `supabase/migrations/20261109_self_service_account_deletion.sql` in Supabase, then set `ACCOUNT_DELETION_ENABLED=true` in the deployment before account deletion becomes available. The migration adds a no-argument RPC that only deletes the authenticated account after recent authentication. The existing Auth foreign keys cascade the profile and tennis data. Currency is a display/account unit only; changing it does not convert historical amounts. The account settings page is player-facing; administrative user management and licensing will be designed as a separate future portal.

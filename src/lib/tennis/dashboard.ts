@@ -72,15 +72,14 @@ export type DashboardSnapshot = {
   stringers: { id: number; name: string; notes: string | null }[];
 };
 
-const dateFormatter = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric" });
-
-function currencyFormatter(currencyCode: string) {
-  return new Intl.NumberFormat("en-GB", { style: "currency", currency: currencyCode });
+function currencyFormatter(currencyCode: string, locale = "en-GB") {
+  return new Intl.NumberFormat(locale, { style: "currency", currency: currencyCode });
 }
 
-function formatDate(value: string | null) {
+function formatDate(value: string | null, locale: string, timezone: string) {
   if (!value) return "—";
-  return dateFormatter.format(new Date(`${value.slice(0, 10)}T12:00:00`));
+  return new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", year: "numeric", timeZone: timezone })
+    .format(new Date(`${value.slice(0, 10)}T12:00:00Z`));
 }
 
 function formatString(brand: string | null, name: string | null, gauge: string | null) {
@@ -90,8 +89,10 @@ function formatString(brand: string | null, name: string | null, gauge: string |
 export async function getDashboardSnapshot(
   supabase: SupabaseClient<Database>,
   currencyCode = "EUR",
+  locale = "en-GB",
+  timezone = "Europe/Lisbon",
 ): Promise<DashboardSnapshot> {
-  const currency = currencyFormatter(currencyCode);
+  const currency = currencyFormatter(currencyCode, locale);
   const [modelsResult, racketsResult, stringsResult, reelsResult, stringingsResult, stringersResult] =
     await Promise.all([
       supabase.from("racket_models").select("id, brand, model_name, head_size, weight_grams, string_pattern, notes").order("brand"),
@@ -126,7 +127,7 @@ export async function getDashboardSnapshot(
       notes: racket.notes,
       name: racket.identifier,
       model: [model?.brand, model?.model_name].filter(Boolean).join(" ") || "Model not set",
-      bought: formatDate(racket.purchase_date),
+      bought: formatDate(racket.purchase_date, locale, timezone),
       price: racket.price === null ? "—" : currency.format(racket.price),
     };
   });
@@ -158,7 +159,7 @@ export async function getDashboardSnapshot(
       hoursPlayed: session.hours_played,
       replacementReason: session.replacement_reason,
       notes: session.notes,
-      date: formatDate(session.stringing_date),
+      date: formatDate(session.stringing_date, locale, timezone),
       racket: racket?.identifier ?? "—",
       string: mainLabel === crossLabel ? mainLabel : `${mainLabel} / ${crossLabel}`,
       tension: `${session.main_tension_kg} ${mainUnit} / ${session.cross_tension_kg} ${crossUnit}`,
@@ -180,7 +181,7 @@ export async function getDashboardSnapshot(
       totalStringingsValue: reel.total_stringings,
       notes: reel.notes,
       name: formatString(string?.brand ?? null, string?.name ?? null, string?.gauge ?? null),
-      bought: formatDate(reel.purchase_date),
+      bought: formatDate(reel.purchase_date, locale, timezone),
       price: reel.price === null ? "—" : currency.format(reel.price),
       usedCapacity,
       remainingCapacity: reel.total_stringings === null ? null : reel.total_stringings - usedCapacity,
@@ -218,6 +219,6 @@ export async function getDashboardSnapshot(
   };
 }
 
-export function formatCurrency(value: number, currencyCode = "EUR") {
-  return currencyFormatter(currencyCode).format(value);
+export function formatCurrency(value: number, currencyCode = "EUR", locale = "en-GB") {
+  return currencyFormatter(currencyCode, locale).format(value);
 }

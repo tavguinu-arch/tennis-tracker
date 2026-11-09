@@ -1,12 +1,17 @@
 "use server";
 
-import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
 function safeError(message: string) {
   return encodeURIComponent(message.slice(0, 180));
+}
+
+function appOrigin() {
+  const configured = process.env.NEXT_PUBLIC_SITE_URL;
+  if (configured) return new URL(configured).origin;
+  return process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000";
 }
 
 export async function signIn(formData: FormData) {
@@ -31,7 +36,7 @@ export async function signUp(formData: FormData) {
   const password = String(formData.get("password") ?? "");
   if (password.length < 8) redirect("/signup?error=Use a password with at least 8 characters.");
 
-  const origin = (await headers()).get("origin") ?? "http://localhost:3000";
+  const origin = appOrigin();
   const emailRedirectTo = new URL("/auth/callback?next=/", origin).toString();
   const { data, error } = await supabase.auth.signUp({
     email,
@@ -54,6 +59,66 @@ export async function signOut() {
   if (supabase) await supabase.auth.signOut();
   revalidatePath("/", "layout");
   redirect("/login");
+}
+
+export async function requestPasswordReset(formData: FormData) {
+  const supabase = await createClient();
+  if (!supabase) redirect("/login?error=configuration");
+  const email = String(formData.get("email") ?? "").trim();
+  if (!email || email.length > 254) redirect("/forgot-password?sent=1");
+  const origin = appOrigin();
+  const redirectTo = new URL("/auth/callback?next=/reset-password", origin).toString();
+  // Use the same response regardless of whether Supabase found the address.
+  await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+  redirect("/forgot-password?sent=1");
+}
+
+export async function updateRecoveryPassword(formData: FormData) {
+  const supabase = await createClient();
+  if (!supabase) redirect("/login?error=configuration");
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/login?message=Open the password reset link from your email first.");
+  const password = String(formData.get("password") ?? "");
+  const confirmation = String(formData.get("confirmation") ?? "");
+  if (password.length < 8 || password !== confirmation) redirect("/reset-password?error=invalid");
+  const { error } = await supabase.auth.updateUser({ password });
+  if (error) redirect("/reset-password?error=failed");
+  revalidatePath("/", "layout");
+  redirect("/reset-password?updated=1");
+}
+
+export async function changePassword(formData: FormData) {
+  const supabase = await createClient();
+  if (!supabase) redirect("/login?error=configuration");
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user?.email) redirect("/login");
+  const currentPassword = String(formData.get("current_password") ?? "");
+  const password = String(formData.get("password") ?? "");
+  const confirmation = String(formData.get("confirmation") ?? "");
+  if (password.length < 8 || password !== confirmation || password === currentPassword) redirect("/?accountError=password-invalid");
+  const { error: reauthError } = await supabase.auth.signInWithPassword({ email: user.email, password: currentPassword });
+  if (reauthError) redirect("/?accountError=password-current");
+  const { error } = await supabase.auth.updateUser({ password });
+  if (error) redirect("/?accountError=password-update");
+  revalidatePath("/");
+  redirect("/?accountMessage=password-updated");
+}
+
+export async function deleteAccount(formData: FormData) {
+  const supabase = await createClient();
+  if (!supabase) redirect("/login?error=configuration");
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user?.email) redirect("/login");
+  const currentPassword = String(formData.get("current_password") ?? "");
+  const confirmation = String(formData.get("confirmation") ?? "");
+  if (confirmation !== "DELETE" || !currentPassword) redirect("/?accountError=delete-confirmation");
+  const { error: reauthError } = await supabase.auth.signInWithPassword({ email: user.email, password: currentPassword });
+  if (reauthError) redirect("/?accountError=delete-password");
+  const { error } = await supabase.rpc("delete_my_tennis_account");
+  if (error) redirect("/?accountError=delete-failed");
+  await supabase.auth.signOut();
+  revalidatePath("/", "layout");
+  redirect("/login?message=account-deleted");
 }
 
 export async function saveProfileSettings(formData: FormData) {

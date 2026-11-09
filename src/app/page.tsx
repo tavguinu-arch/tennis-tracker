@@ -17,7 +17,11 @@ const emptySnapshot: DashboardSnapshot = {
   stringers: [],
 };
 
-export default async function HomePage({ searchParams }: { searchParams: Promise<{ profileSaved?: string; profileError?: string }> }) {
+function preference<T extends string>(value: string | null | undefined, allowed: readonly T[], fallback: T): T {
+  return allowed.includes(value as T) ? value as T : fallback;
+}
+
+export default async function HomePage({ searchParams }: { searchParams: Promise<{ profileSaved?: string; profileError?: string; accountMessage?: string; accountError?: string }> }) {
   const supabase = await createClient();
   if (!supabase) return <DashboardClient data={null} profileName="Test player" />;
 
@@ -30,10 +34,15 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
     .eq("id", user.id)
     .maybeSingle();
 
+  const locale = preference(profile?.locale, ["en-GB", "pt-PT"], "en-GB");
+  const currencyCode = preference(profile?.currency_code, ["EUR", "GBP", "USD"], "EUR");
+  const timezone = preference(profile?.timezone, ["Europe/Lisbon", "Europe/London", "Europe/Paris", "UTC"], "Europe/Lisbon");
+  const preferredTensionUnit = preference(profile?.preferred_tension_unit, ["kg", "lb"], "kg");
+  const theme = preference(profile?.theme, ["system", "light", "dark"], "system");
   let data = emptySnapshot;
   let loadError: string | null = null;
   try {
-    data = await getDashboardSnapshot(supabase, profile?.currency_code ?? "EUR");
+    data = await getDashboardSnapshot(supabase, currencyCode, locale, timezone);
   } catch {
     loadError = "We could not load your records. Please refresh or sign in again.";
   }
@@ -45,14 +54,17 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
     profileName={profileName}
     email={user.email ?? ""}
     preferences={{
-      locale: profile?.locale ?? "en-GB",
-      currency_code: profile?.currency_code ?? "EUR",
-      timezone: profile?.timezone ?? "Europe/Lisbon",
-      preferred_tension_unit: profile?.preferred_tension_unit ?? "kg",
-      theme: profile?.theme ?? "system",
+      locale,
+      currency_code: currencyCode,
+      timezone,
+      preferred_tension_unit: preferredTensionUnit,
+      theme,
     }}
     saved={params.profileSaved === "1"}
     profileError={params.profileError ?? null}
     loadError={loadError}
+    accountMessage={params.accountMessage ?? null}
+    accountError={params.accountError ?? null}
+    accountDeletionEnabled={process.env.ACCOUNT_DELETION_ENABLED === "true"}
   />;
 }
