@@ -2,6 +2,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database";
 
 export type RacketSummary = {
+  id: number;
+  modelId: number | null;
   name: string;
   model: string;
   bought: string;
@@ -9,6 +11,11 @@ export type RacketSummary = {
 };
 
 export type StringingSummary = {
+  id: number;
+  racketId: number | null;
+  mainReelId: number | null;
+  crossReelId: number | null;
+  stringerId: number | null;
   date: string;
   racket: string;
   string: string;
@@ -17,6 +24,8 @@ export type StringingSummary = {
 };
 
 export type ReelSummary = {
+  id: number;
+  stringId: number | null;
   name: string;
   bought: string;
   price: string;
@@ -24,6 +33,7 @@ export type ReelSummary = {
 };
 
 export type StringSummary = {
+  id: number;
   brand: string;
   name: string;
   type: string;
@@ -40,6 +50,8 @@ export type DashboardSnapshot = {
   stringings: StringingSummary[];
   reels: ReelSummary[];
   strings: StringSummary[];
+  racketModels: { id: number; brand: string; name: string }[];
+  stringers: { id: number; name: string }[];
 };
 
 const dateFormatter = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric" });
@@ -64,7 +76,7 @@ export async function getDashboardSnapshot(
   const currency = currencyFormatter(currencyCode);
   const [modelsResult, racketsResult, stringsResult, reelsResult, stringingsResult, stringersResult] =
     await Promise.all([
-      supabase.from("racket_models").select("id, brand, model_name"),
+      supabase.from("racket_models").select("id, brand, model_name").order("brand"),
       supabase.from("rackets").select("id, identifier, model_id, purchase_date, price, is_active").order("id"),
       supabase.from("strings").select("id, brand, name, type, gauge").order("brand"),
       supabase.from("string_reels").select("id, string_id, purchase_date, price, total_stringings").order("purchase_date", { ascending: false }),
@@ -88,6 +100,8 @@ export async function getDashboardSnapshot(
   const rackets = racketsResult.data.map((racket) => {
     const model = racket.model_id === null ? undefined : models.get(racket.model_id);
     return {
+      id: racket.id,
+      modelId: racket.model_id,
       name: racket.identifier,
       model: [model?.brand, model?.model_name].filter(Boolean).join(" ") || "Model not set",
       bought: formatDate(racket.purchase_date),
@@ -108,6 +122,11 @@ export async function getDashboardSnapshot(
     const crossUnit = session.cross_tension_unit ?? "kg";
 
     return {
+      id: session.id,
+      racketId: session.racket_id,
+      mainReelId: session.main_reel_id,
+      crossReelId: session.cross_reel_id,
+      stringerId: session.stringer_id,
       date: formatDate(session.stringing_date),
       racket: racket?.identifier ?? "—",
       string: mainLabel === crossLabel ? mainLabel : `${mainLabel} / ${crossLabel}`,
@@ -120,6 +139,8 @@ export async function getDashboardSnapshot(
     const string = reel.string_id === null ? undefined : stringsById.get(reel.string_id);
     const usedMains = stringingsResult.data.filter((session) => session.main_reel_id === reel.id).length;
     return {
+      id: reel.id,
+      stringId: reel.string_id,
       name: formatString(string?.brand ?? null, string?.name ?? null, string?.gauge ?? null),
       bought: formatDate(reel.purchase_date),
       price: reel.price === null ? "—" : currency.format(reel.price),
@@ -128,6 +149,7 @@ export async function getDashboardSnapshot(
   });
 
   const strings = stringsResult.data.map((item) => ({
+    id: item.id,
     brand: item.brand,
     name: item.name,
     type: item.type ?? "—",
@@ -144,6 +166,12 @@ export async function getDashboardSnapshot(
     stringings,
     reels,
     strings,
+    racketModels: modelsResult.data.map((model) => ({
+      id: model.id,
+      brand: model.brand ?? "Unknown brand",
+      name: model.model_name ?? "Unnamed model",
+    })),
+    stringers: stringersResult.data.map((stringer) => ({ id: stringer.id, name: stringer.name })),
   };
 }
 

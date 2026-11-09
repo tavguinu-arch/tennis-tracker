@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useActionState, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { DashboardSnapshot, RacketSummary, StringingSummary } from "@/lib/tennis/dashboard";
 import { formatCurrency } from "@/lib/tennis/dashboard";
 import { saveProfileSettings, signOut } from "@/app/auth/actions";
+import { createTennisRecord, type RecordActionState } from "@/app/tennis/actions";
 
 type View = "Overview" | "Rackets" | "Stringings" | "Strings" | "Profile";
 
@@ -15,16 +17,16 @@ const views: { name: View; icon: string }[] = [
 ];
 
 const previewRackets: RacketSummary[] = [
-  { name: "Raquete 1", model: "Tecnifibre TFight 300", bought: "29 Sep 2026", price: "€137.92" },
-  { name: "Raquete 2", model: "Tecnifibre TFight 300", bought: "6 Oct 2026", price: "€156.66" },
-  { name: "Raquete 3", model: "Tecnifibre TFight 300", bought: "6 Oct 2026", price: "€156.66" },
+  { id: 1, modelId: 1, name: "Raquete 1", model: "Tecnifibre TFight 300", bought: "29 Sep 2026", price: "€137.92" },
+  { id: 2, modelId: 1, name: "Raquete 2", model: "Tecnifibre TFight 300", bought: "6 Oct 2026", price: "€156.66" },
+  { id: 3, modelId: 1, name: "Raquete 3", model: "Tecnifibre TFight 300", bought: "6 Oct 2026", price: "€156.66" },
 ];
 
 const previewStringings: StringingSummary[] = [
-  { date: "7 Oct 2026", racket: "Raquete 3", string: "Solinco Hyper-G Soft 1.20", tension: "23 kg / 23 kg", stringer: "—" },
-  { date: "7 Oct 2026", racket: "Raquete 2", string: "Solinco Hyper-G Soft 1.20", tension: "23 kg / 23 kg", stringer: "—" },
-  { date: "7 Oct 2026", racket: "Raquete 3", string: "Solinco Hyper-G Soft 1.20", tension: "23 kg / 23 kg", stringer: "—" },
-  { date: "7 Oct 2026", racket: "Raquete 2", string: "Solinco Hyper-G Soft 1.20", tension: "23 kg / 23 kg", stringer: "—" },
+  { id: 1, racketId: 3, mainReelId: 1, crossReelId: 1, stringerId: null, date: "7 Oct 2026", racket: "Raquete 3", string: "Solinco Hyper-G Soft 1.20", tension: "23 kg / 23 kg", stringer: "—" },
+  { id: 2, racketId: 2, mainReelId: 1, crossReelId: 1, stringerId: null, date: "7 Oct 2026", racket: "Raquete 2", string: "Solinco Hyper-G Soft 1.20", tension: "23 kg / 23 kg", stringer: "—" },
+  { id: 3, racketId: 3, mainReelId: 1, crossReelId: 1, stringerId: null, date: "7 Oct 2026", racket: "Raquete 3", string: "Solinco Hyper-G Soft 1.20", tension: "23 kg / 23 kg", stringer: "—" },
+  { id: 4, racketId: 2, mainReelId: 1, crossReelId: 1, stringerId: null, date: "7 Oct 2026", racket: "Raquete 2", string: "Solinco Hyper-G Soft 1.20", tension: "23 kg / 23 kg", stringer: "—" },
 ];
 
 function PreviewBadge({ preview }: { preview: boolean }) {
@@ -147,9 +149,80 @@ function StringingTable({ rows, compact = false }: { rows: StringingSummary[]; c
   return <div className="table-scroll"><table className={compact ? "stringing-table compact" : "stringing-table"}><thead><tr>{["Date", "Racket", "String", "Tension (main / cross)", "Stringer"].map((header) => <th key={header}>{header}<span className="sort-mark">↕</span></th>)}</tr></thead><tbody>{rows.map((row, rowIndex) => <tr key={`${row.racket}-${rowIndex}`}><td>{row.date}</td><td>{row.racket}</td><td>{row.string}</td><td>{row.tension}</td><td>{row.stringer}</td></tr>)}</tbody></table></div>;
 }
 
+type RecordKind = "model" | "racket" | "stringer" | "stringing" | "string" | "reel";
+
+const recordLabels: Record<RecordKind, string> = {
+  model: "New racket model",
+  racket: "New racket",
+  stringer: "New stringer",
+  stringing: "New stringing",
+  string: "New string",
+  reel: "New reel",
+};
+
+function RecordDialog({ kind, data, onClose }: { kind: RecordKind; data: DashboardSnapshot; onClose: () => void }) {
+  const router = useRouter();
+  const [state, formAction, pending] = useActionState<RecordActionState, FormData>(createTennisRecord, {});
+  useEffect(() => {
+    if (state.success) {
+      onClose();
+      router.refresh();
+    }
+  }, [state.success, onClose, router]);
+
+  return <div className="record-dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+    <section className="record-dialog" role="dialog" aria-modal="true" aria-labelledby="record-dialog-title">
+      <div className="record-dialog-heading"><div><span>PLAYER RECORD</span><h2 id="record-dialog-title">{recordLabels[kind]}</h2></div><button type="button" className="record-dialog-close" aria-label="Close" onClick={onClose}>×</button></div>
+      <form action={formAction} className="record-form">
+        <input type="hidden" name="kind" value={kind} />
+        {kind === "model" && <>
+          <label>Brand<input name="brand" required maxLength={100} placeholder="e.g. Tecnifibre" /></label>
+          <label>Model name<input name="model_name" required maxLength={120} placeholder="e.g. TFight 300" /></label>
+          <div className="record-form-row"><label>Head size (in²)<input name="head_size" type="number" min="0" step="any" /></label><label>Weight (g)<input name="weight_grams" type="number" min="0" step="any" /></label></div>
+          <label>String pattern<input name="string_pattern" maxLength={30} placeholder="e.g. 16×19" /></label>
+          <label>Notes<textarea name="notes" maxLength={1000} rows={2} /></label>
+        </>}
+        {kind === "racket" && <>
+          <label>Racket identifier<input name="identifier" required maxLength={80} placeholder="e.g. Racket 4" /></label>
+          <label>Model<select name="model_id" defaultValue=""><option value="">Choose a model</option>{data.racketModels.map((model) => <option key={model.id} value={model.id}>{model.brand} {model.name}</option>)}</select></label>
+          <div className="record-form-row"><label>Purchase date<input name="purchase_date" type="date" /></label><label>Price (€)<input name="price" type="number" min="0" step="0.01" /></label></div>
+          <label className="record-checkbox"><input type="checkbox" name="is_active" defaultChecked /> Active racket</label>
+          <label>Notes<textarea name="notes" maxLength={1000} rows={2} /></label>
+        </>}
+        {kind === "stringer" && <>
+          <label>Name<input name="name" required maxLength={120} placeholder="Stringer name" /></label>
+          <label>Notes<textarea name="notes" maxLength={1000} rows={3} /></label>
+        </>}
+        {kind === "string" && <>
+          <div className="record-form-row"><label>Brand<input name="brand" required maxLength={100} placeholder="e.g. Solinco" /></label><label>String name<input name="name" required maxLength={120} placeholder="e.g. Hyper-G Soft" /></label></div>
+          <div className="record-form-row"><label>Type<input name="type" maxLength={80} placeholder="e.g. Polyester" /></label><label>Gauge<input name="gauge" maxLength={30} placeholder="e.g. 1.20" /></label></div>
+        </>}
+        {kind === "reel" && <>
+          <label>String<select name="string_id" required defaultValue=""><option value="">Choose a string</option>{data.strings.map((string) => <option key={string.id} value={string.id}>{string.brand} {string.name} {string.gauge}</option>)}</select></label>
+          <div className="record-form-row"><label>Purchase date<input name="purchase_date" type="date" /></label><label>Price (€)<input name="price" type="number" min="0" step="0.01" /></label></div>
+          <label>Capacity (full stringings)<input name="total_stringings" type="number" required min="1" step="1" defaultValue="17" /></label>
+          <label>Notes<textarea name="notes" maxLength={1000} rows={2} /></label>
+        </>}
+        {kind === "stringing" && <>
+          <label>Racket<select name="racket_id" required defaultValue=""><option value="">Choose a racket</option>{data.rackets.map((racket) => <option key={racket.id} value={racket.id}>{racket.name} · {racket.model}</option>)}</select></label>
+          <div className="record-form-row"><label>Main reel<select name="main_reel_id" required defaultValue=""><option value="">Choose a reel</option>{data.reels.map((reel) => <option key={reel.id} value={reel.id}>{reel.name}</option>)}</select></label><label>Cross reel<select name="cross_reel_id" required defaultValue=""><option value="">Choose a reel</option>{data.reels.map((reel) => <option key={reel.id} value={reel.id}>{reel.name}</option>)}</select></label></div>
+          <div className="record-form-row"><label>Main tension<input name="main_tension_kg" type="number" required min="1" step="0.1" defaultValue="23" /></label><label>Unit<select name="main_tension_unit" defaultValue="kg"><option value="kg">kg</option><option value="lb">lb</option></select></label></div>
+          <div className="record-form-row"><label>Cross tension<input name="cross_tension_kg" type="number" required min="1" step="0.1" defaultValue="23" /></label><label>Unit<select name="cross_tension_unit" defaultValue="kg"><option value="kg">kg</option><option value="lb">lb</option></select></label></div>
+          <div className="record-form-row"><label>Stringer<select name="stringer_id" defaultValue=""><option value="">Not specified</option>{data.stringers.map((stringer) => <option key={stringer.id} value={stringer.id}>{stringer.name}</option>)}</select></label><label>Date<input name="stringing_date" type="date" /></label></div>
+          <div className="record-form-row"><label>Service cost (€)<input name="service_cost" type="number" min="0" step="0.01" /></label><label>Hours played<input name="hours_played" type="number" min="0" step="0.5" /></label></div>
+          <label>Replacement reason<input name="replacement_reason" maxLength={120} placeholder="Optional" /></label>
+          <label>Notes<textarea name="notes" maxLength={1000} rows={2} /></label>
+        </>}
+        {state.error && <p className="record-form-error" role="alert">{state.error}</p>}
+        <div className="record-form-actions"><button type="button" className="action-button secondary" onClick={onClose}>Cancel</button><button type="submit" className="action-button primary" disabled={pending}>{pending ? "Saving…" : "Save record"}</button></div>
+      </form>
+    </section>
+  </div>;
+}
+
 export default function DashboardClient({ data, profileName, email = "", preferences, saved = false, profileError = null, loadError = null }: { data: DashboardSnapshot | null; profileName: string; email?: string; preferences?: ProfilePreferences; saved?: boolean; profileError?: string | null; loadError?: string | null }) {
   const [view, setView] = useState<View>("Overview");
-  const [actionMessage, setActionMessage] = useState("");
+  const [recordKind, setRecordKind] = useState<RecordKind | null>(null);
   const preview = data === null;
   const currentData: DashboardSnapshot = data ?? {
     activeRackets: 3,
@@ -159,17 +232,22 @@ export default function DashboardClient({ data, profileName, email = "", prefere
     serviceSpend: 75,
     rackets: previewRackets,
     stringings: previewStringings,
-    reels: [{ name: "Solinco Hyper-G Soft 1.20", bought: "21 Sep 2026", price: "€95.00", usedForMains: "15" }],
-    strings: [{ brand: "Solinco", name: "Hyper-G Soft", type: "Polyester", gauge: "1.20" }],
+    reels: [{ id: 1, stringId: 1, name: "Solinco Hyper-G Soft 1.20", bought: "21 Sep 2026", price: "€95.00", usedForMains: "15" }],
+    strings: [{ id: 1, brand: "Solinco", name: "Hyper-G Soft", type: "Polyester", gauge: "1.20" }],
+    racketModels: [{ id: 1, brand: "Tecnifibre", name: "TFight 300" }],
+    stringers: [],
   };
   const currentPreferences = preferences ?? { locale: "en-GB", currency_code: "EUR", timezone: "Europe/Lisbon", preferred_tension_unit: "kg", theme: "system" };
-  const handleAction = (label: string) => setActionMessage(`${label} form is not connected yet. This screen preview does not save records.`);
+  const handleAction = (label: string) => {
+    const kindByLabel: Record<string, RecordKind> = { "New model": "model", "New racket": "racket", "New stringer": "stringer", "New stringing": "stringing", "New string": "string", "New reel": "reel" };
+    const kind = kindByLabel[label];
+    if (kind) setRecordKind(kind);
+  };
   return <main className="app-shell">
     <Header view={view} setView={setView} preview={preview} profileName={profileName} />
     <div className="main-content"><PreviewNotice preview={preview} loadError={loadError} />
       {!preview && !loadError && currentData.rackets.length === 0 && currentData.stringingsCount === 0 && <div className="empty-account-note">Your account is ready. No tennis records are assigned to it yet.</div>}
       {profileError && <div className="action-feedback" role="alert">{profileError === "invalid-settings" ? "One or more preferences are not valid." : "Your preferences could not be saved."}</div>}
-      {actionMessage && <div className="action-feedback" role="status">{actionMessage}<button type="button" aria-label="Dismiss" onClick={() => setActionMessage("")}>×</button></div>}
       {view === "Overview" && <Overview data={currentData} currencyCode={currentPreferences.currency_code} onViewAll={() => setView("Stringings")} />}
       {view === "Rackets" && <RacketsView data={currentData} onAction={handleAction} />}
       {view === "Stringings" && <StringingsView data={currentData} onAction={handleAction} />}
@@ -180,5 +258,6 @@ export default function DashboardClient({ data, profileName, email = "", prefere
     <nav className="mobile-nav" aria-label="Main navigation">
       {views.map((item) => <button type="button" key={item.name} className={view === item.name ? "mobile-nav-item selected" : "mobile-nav-item"} onClick={() => setView(item.name)}><span className="mobile-nav-icon">{item.icon}</span><span>{item.name}</span></button>)}
     </nav>
+    {recordKind && <RecordDialog kind={recordKind} data={currentData} onClose={() => setRecordKind(null)} />}
   </main>;
 }

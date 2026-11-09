@@ -13,6 +13,8 @@ const emptySnapshot: DashboardSnapshot = {
   stringings: [],
   reels: [],
   strings: [],
+  racketModels: [],
+  stringers: [],
 };
 
 export default async function HomePage({ searchParams }: { searchParams: Promise<{ profileSaved?: string; profileError?: string }> }) {
