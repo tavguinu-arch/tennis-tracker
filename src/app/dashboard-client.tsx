@@ -101,7 +101,14 @@ function TournamentsView() {
     <PageTitle title="Tournaments & results" actions={<span className="design-status">DESIGN PREVIEW</span>} />
     <div className="module-hero tournament-hero"><div><span className="future-eyebrow">MATCH DAY</span><h2>Keep every result in context.</h2><p>Track the event, the opponent and the story of each match.</p></div><div className="hero-tennis-mark">✦</div></div>
     <div className="module-stats"><article><span>Tournaments</span><strong>—</strong><small>Your competition calendar</small></article><article><span>Matches played</span><strong>—</strong><small>Every result, in one place</small></article><article><span>Win rate</span><strong>—</strong><small>Built from recorded matches</small></article></div>
-    <section className="module-panel"><div className="section-heading"><div><h2>Competition calendar</h2><p>Organise tournaments first, then add each match with opponent, round, score and outcome.</p></div><span className="coming-pill">COMING NEXT</span></div><div className="tournament-empty"><div className="tournament-court"><span>LOVE</span><i /><i /><i /><i /><b /></div><div><strong>Your next tournament starts here</strong><p>Event dates · Surface · Location · Match results</p></div></div></section>
+    <section className="module-panel tournament-module-panel"><div className="section-heading"><div><h2>Tournaments</h2><p>Create a tournament, then register each match inside it. Every result stays linked to its event.</p></div><span className="coming-pill">COMING NEXT</span></div>
+      <article className="tournament-example"><div className="tournament-example-head"><div className="tournament-date-mark"><strong>JUN</strong><span>12</span></div><div className="tournament-event-title"><span className="future-eyebrow">TOURNAMENT · EXAMPLE</span><h3>Summer Club Open</h3><p>Lisbon · Clay · 12–14 Jun</p></div><span className="event-match-count">2 matches</span></div>
+        <div className="match-list-heading"><span>GAMES IN THIS TOURNAMENT</span><span>RESULT</span></div>
+        <div className="tournament-match-row"><span className="match-round">ROUND 1</span><strong>Opponent name</strong><span className="match-score">6–3, 6–4 <i>WIN</i></span></div>
+        <div className="tournament-match-row"><span className="match-round">QUARTER-FINAL</span><strong>Opponent name</strong><span className="match-score">4–6, 6–3, 6–2 <i>WIN</i></span></div>
+        <div className="add-match-row"><span>+</span> Add a game to this tournament</div>
+      </article>
+    </section>
     <p className="module-privacy-note"><span>◉</span> Tournament and match records will be private to your player account.</p>
   </>;
 }
